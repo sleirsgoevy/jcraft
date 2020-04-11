@@ -8,4 +8,4 @@ Run `make`. The `src.jar` file will appear in the current directory.
 
 ## Current status
 
-Currently the game is able to render single-color blocks with outlines. Texture support is planned.
+Currently the game is able to render single-color blocks with textures.

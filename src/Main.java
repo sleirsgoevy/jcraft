@@ -3,12 +3,14 @@ import java.awt.event.*;
 import java.awt.image.*;
 import org.homebrew.GameMain;
 
+import javax.imageio.ImageIO;
+
 public class Main extends Frame implements KeyListener
 {
     private GameMain game;
     private BufferedImage frame;
     private int[] fb = new int[640*480];
-    public Main()
+    public Main() throws Exception
     {
         super();
         game = new GameMain();
@@ -52,7 +54,7 @@ public class Main extends Frame implements KeyListener
         }
     }
     public void keyTyped(KeyEvent e){}
-    public static void main(String[] argv)
+    public static void main(String[] argv) throws Exception
     {
         new Main();
     }

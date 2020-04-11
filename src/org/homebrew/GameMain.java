@@ -4,7 +4,18 @@ import java.util.Random;
 
 public class GameMain
 {
-    final static int[] block_colors = {0xff00ff00 /* grass */, 0xff800000 /* wood */, 0xff008000 /* leaves */, 0xffff8000 /* dirt */};
+    final static int[] block_colors = {
+        0xff00ff00, 0xffff8000, 0xffff8000 /* grass */,
+        0xff800000, 0xff800000, 0xff800000 /* wood */,
+        0xff008000, 0xff008000, 0xff008000 /* leaves */,
+        0xffff8000, 0xffff8000, 0xffff8000 /* dirt */,
+    };
+    final static int[] block_textures = {
+        0, 1, 2 /* grass */,
+        2, 2, 2 /* stub */,
+        2, 2, 2 /* stub */,
+        2, 2, 2 /* dirt */,
+    };
     private byte[] world;
     private double playerX;
     private double playerY;
@@ -24,6 +35,7 @@ public class GameMain
     private int vel_yaw;
     private int vel_pitch;
     private long prev_time;
+    private int[] texture_atlas;
     public GameMain()
     {
         world = new byte[128*128*128];
@@ -39,6 +51,7 @@ public class GameMain
         dsu = new int[640*480];
         keyStates = new boolean[1024];
         prev_time = System.currentTimeMillis();
+        texture_atlas = TextureAtlas.atlas;
     }
     public void render(int[] buffer)
     {
@@ -89,6 +102,69 @@ public class GameMain
         for(int i = 0; i < 640*480; i++)
             if(buffer[i] == 0)
                 buffer[i] = -1;
+            else if((buffer[i] & 0xff000000) == 0xb3000000)
+            {
+                int side = (buffer[i] & 0xe00000) >> 21;
+                int pos = buffer[i] & 0x1fffff;
+                double bx = (pos >> 14) - playerX;
+                double bz = ((pos >> 7) & 127) - playerZ;
+                double by = (pos & 127) - playerY;
+                double vx = (i%640-320)/250.0;
+                double vy = (240-i/640)/250.0;
+                double vz = 1;
+                double tmp;
+                tmp = vz * playerPitch_cos - vy * playerPitch_sin;
+                vy = vy * playerPitch_cos + vz * playerPitch_sin;
+                vz = tmp;
+                tmp = vx * playerYaw_cos + vz * playerYaw_sin;
+                vz = vz * playerYaw_cos - vx * playerYaw_sin;
+                vx = tmp;
+                
+                if(side < 2) // y=c
+                {
+                    tmp = by;
+                    by = bz;
+                    bz = tmp;
+                    tmp = vy;
+                    vy = vz;
+                    vz = tmp;
+                }
+                else if(side < 4) // x=c
+                {
+                    tmp = bx;
+                    bx = bz;
+                    bz = tmp;
+                    tmp = vx;
+                    vx = vz;
+                    vz = tmp;
+                }
+                if(side % 2 == 1)
+                    bz += 1;
+                double coef = bz / vz;
+                double tx = vx * coef - bx;
+                double ty = vy * coef - by;
+                if(tx < 0)
+                    tx = 0;
+                if(tx > 0.95)
+                    tx = 0.95;
+                if(ty < 0)
+                    ty = 0;
+                if(ty > 0.95)
+                    ty = 0.95;
+                int tx_i = (int)Math.floor(tx*16);
+                int ty_i = (int)Math.floor(ty*16);
+                if(side >= 2)
+                    ty_i = 15 - ty_i;
+                if(side == 0)
+                    side = 2;
+                else if(side == 1)
+                    side = 0;
+                else
+                    side = 1;
+		int tex_id = block_textures[3*((255&(int)world[pos])-128)+side];
+                int tex_start = 4096*(tex_id/16)+16*(tex_id%16);
+                buffer[i] = texture_atlas[tex_start+256*ty_i+tx_i];
+            }
         playerPhysics();
     }
     private void playerPhysics()
@@ -260,24 +336,21 @@ public class GameMain
         if((preflight[idx] & mask) == 0)
             return;
         int block = 255&(int)world[x*16384+z*128+y];
-        int color = -1;
         if(block == 0)
             return; //air
-        else
-            color = block_colors[block - 128];
-        boolean outline = (x-playerX)*(x-playerX)+(y-playerY)*(y-playerY)+(z-playerZ)*(z-playerZ)<=625;
+        boolean outline = false;//(x-playerX)*(x-playerX)+(y-playerY)*(y-playerY)+(z-playerZ)*(z-playerZ)<=625;
         if(playerY < y && world[pos-1] < 128)
-            render_plane(buffer, x, y, z, x+1, y, z, x+1, y, z+1, x, y, z+1, color, outline);
+            render_plane(buffer, x, y, z, x+1, y, z, x+1, y, z+1, x, y, z+1, 0xb3000000|pos, outline);
         if(playerY > y+1 && world[pos+1] < 128)
-	    render_plane(buffer, x, y+1, z, x+1, y+1, z, x+1, y+1, z+1, x, y+1, z+1, color, outline);
+	    render_plane(buffer, x, y+1, z, x+1, y+1, z, x+1, y+1, z+1, x, y+1, z+1, 0xb3200000|pos, outline);
         if(playerX < x && world[pos-16384] < 128)
-            render_plane(buffer, x, y, z, x, y+1, z, x, y+1, z+1, x, y, z+1, color, outline);
+            render_plane(buffer, x, y, z, x, y+1, z, x, y+1, z+1, x, y, z+1, 0xb3400000|pos, outline);
         if(playerX > x+1 && world[pos+16384] < 128)
-            render_plane(buffer, x+1, y, z, x+1, y+1, z, x+1, y+1, z+1, x+1, y, z+1, color, outline);
+            render_plane(buffer, x+1, y, z, x+1, y+1, z, x+1, y+1, z+1, x+1, y, z+1, 0xb3600000|pos, outline);
         if(playerZ < z && world[pos-128] < 128)
-            render_plane(buffer, x, y, z, x+1, y, z, x+1, y+1, z, x, y+1, z, color, outline);
+            render_plane(buffer, x, y, z, x+1, y, z, x+1, y+1, z, x, y+1, z, 0xb3800000|pos, outline);
         if(playerZ > z+1 && world[pos+128] < 128)
-            render_plane(buffer, x, y, z+1, x+1, y, z+1, x+1, y+1, z+1, x, y+1, z+1, color, outline);
+            render_plane(buffer, x, y, z+1, x+1, y, z+1, x+1, y+1, z+1, x, y+1, z+1, 0xb3a00000|pos, outline);
     }
     private void render_plane(int[] buffer, double x1, double y1, double z1, double x2, double y2, double z2, double x3, double y3, double z3, double x4, double y4, double z4, int color, boolean outline)
     {
