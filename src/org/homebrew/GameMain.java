@@ -102,6 +102,13 @@ public class GameMain
         int prev_pos = -1;
         int prev_side = -1;
         int tex_start = -1;
+        int ycos = (int)(playerYaw_cos*65536);
+        int ysin = (int)(playerYaw_sin*65536);
+        int pcos = (int)(playerPitch_cos*65536);
+        int psin = (int)(playerPitch_sin*65536);
+        int pX = (int)(playerX*65536);
+        int pY = (int)(playerY*65536);
+        int pZ = (int)(playerZ*65536);
         for(int i = 0; i < 640*480; i++)
             if(buffer[i] == 0)
                 buffer[i] = -1;
@@ -123,52 +130,58 @@ public class GameMain
                     int tex_id = block_textures[3*((255&(int)world[pos])-128)+side2];
                     tex_start = 4096*(tex_id/16)+16*(tex_id%16);
                 }
-                double bx = (pos >> 14) - playerX;
-                double bz = ((pos >> 7) & 127) - playerZ;
-                double by = (pos & 127) - playerY;
-                double vx = (i%640-320)/250.0;
-                double vy = (240-i/640)/250.0;
-                double vz = 1;
-                double tmp;
-                tmp = vz * playerPitch_cos - vy * playerPitch_sin;
-                vy = vy * playerPitch_cos + vz * playerPitch_sin;
-                vz = tmp;
-                tmp = vx * playerYaw_cos + vz * playerYaw_sin;
-                vz = vz * playerYaw_cos - vx * playerYaw_sin;
-                vx = tmp;
+                int bx_fp = ((pos >> 14) << 16) - pX;
+                int bz_fp = (((pos >> 7) & 127) << 16) - pZ;
+                int by_fp = ((pos & 127) << 16) - pY;
+                int vx_fp = ((i%640-320) << 16)/250;
+                int vy_fp = ((240-i/640) << 16)/250;
+                int vz_fp = 65536;
+                int tmp_fp;
+                tmp_fp = (int)((vz_fp * (long)pcos - vy_fp * (long)psin)>>16);
+                vy_fp = (int)((vy_fp * (long)pcos + vz_fp * (long)psin)>>16);
+                vz_fp = tmp_fp;
+                tmp_fp = (int)((vx_fp * (long)ycos + vz_fp * (long)ysin)>>16);
+                vz_fp = (int)((vz_fp * (long)ycos - vx_fp * (long)ysin)>>16);
+                vx_fp = tmp_fp;
                 if(side < 2) // y=c
                 {
-                    tmp = by;
-                    by = bz;
-                    bz = tmp;
-                    tmp = vy;
-                    vy = vz;
-                    vz = tmp;
+                    tmp_fp = by_fp;
+                    by_fp = bz_fp;
+                    bz_fp = tmp_fp;
+                    tmp_fp = vy_fp;
+                    vy_fp = vz_fp;
+                    vz_fp = tmp_fp;
                 }
                 else if(side < 4) // x=c
                 {
-                    tmp = bx;
-                    bx = bz;
-                    bz = tmp;
-                    tmp = vx;
-                    vx = vz;
-                    vz = tmp;
+                    tmp_fp = bx_fp;
+                    bx_fp = bz_fp;
+                    bz_fp = tmp_fp;
+                    tmp_fp = vx_fp;
+                    vx_fp = vz_fp;
+                    vz_fp = tmp_fp;
                 }
                 if(side % 2 == 1)
-                    bz += 1;
-                double coef = bz / vz;
-                double tx = vx * coef - bx;
-                double ty = vy * coef - by;
-                if(tx < 0)
-                    tx = 0;
-                if(tx > 0.95)
-                    tx = 0.95;
-                if(ty < 0)
-                    ty = 0;
-                if(ty > 0.95)
-                    ty = 0.95;
-                int tx_i = (int)Math.floor(tx*16);
-                int ty_i = (int)Math.floor(ty*16);
+                    bz_fp += 65536;
+                long tx_fp, ty_fp;
+                if(vz_fp == 0) // wtf??
+                    tx_fp = ty_fp = -1;
+                else
+                {
+                    long coef_fp = (((long)bz_fp)<<16)/vz_fp;
+                    tx_fp = ((vx_fp*coef_fp)>>16)-bx_fp;
+                    ty_fp = ((vy_fp*coef_fp)>>16)-by_fp;
+                }
+                if(tx_fp < 0)
+                    tx_fp = 0;
+                if(tx_fp >= 65536)
+                    tx_fp = 65535;
+                if(ty_fp < 0)
+                    ty_fp = 0;
+                if(ty_fp >= 65536)
+                    ty_fp = 65535;
+                int tx_i = (int)(tx_fp>>12);
+                int ty_i = (int)(ty_fp>>12);
                 if(side >= 2)
                     ty_i = 15 - ty_i;
                 buffer[i] = texture_atlas[tex_start+256*ty_i+tx_i];
