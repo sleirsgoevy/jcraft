@@ -99,6 +99,9 @@ public class GameMain
                     render_block(buffer, i, j, k);
             }
         }
+        int prev_pos = -1;
+        int prev_side = -1;
+        int tex_start = -1;
         for(int i = 0; i < 640*480; i++)
             if(buffer[i] == 0)
                 buffer[i] = -1;
@@ -106,6 +109,20 @@ public class GameMain
             {
                 int side = (buffer[i] & 0xe00000) >> 21;
                 int pos = buffer[i] & 0x1fffff;
+                if(pos != prev_pos || side != prev_side)
+                {
+                    prev_pos = pos;
+                    prev_side = side;
+                    int side2 = side;
+                    if(side2 == 0)
+                        side2 = 2;
+                    else if(side2 == 1)
+                        side2 = 0;
+                    else
+                        side2 = 1;
+                    int tex_id = block_textures[3*((255&(int)world[pos])-128)+side2];
+                    tex_start = 4096*(tex_id/16)+16*(tex_id%16);
+                }
                 double bx = (pos >> 14) - playerX;
                 double bz = ((pos >> 7) & 127) - playerZ;
                 double by = (pos & 127) - playerY;
@@ -119,7 +136,6 @@ public class GameMain
                 tmp = vx * playerYaw_cos + vz * playerYaw_sin;
                 vz = vz * playerYaw_cos - vx * playerYaw_sin;
                 vx = tmp;
-                
                 if(side < 2) // y=c
                 {
                     tmp = by;
@@ -155,14 +171,6 @@ public class GameMain
                 int ty_i = (int)Math.floor(ty*16);
                 if(side >= 2)
                     ty_i = 15 - ty_i;
-                if(side == 0)
-                    side = 2;
-                else if(side == 1)
-                    side = 0;
-                else
-                    side = 1;
-		int tex_id = block_textures[3*((255&(int)world[pos])-128)+side];
-                int tex_start = 4096*(tex_id/16)+16*(tex_id%16);
                 buffer[i] = texture_atlas[tex_start+256*ty_i+tx_i];
             }
         playerPhysics();
@@ -342,7 +350,7 @@ public class GameMain
         if(playerY < y && world[pos-1] < 128)
             render_plane(buffer, x, y, z, x+1, y, z, x+1, y, z+1, x, y, z+1, 0xb3000000|pos, outline);
         if(playerY > y+1 && world[pos+1] < 128)
-	    render_plane(buffer, x, y+1, z, x+1, y+1, z, x+1, y+1, z+1, x, y+1, z+1, 0xb3200000|pos, outline);
+            render_plane(buffer, x, y+1, z, x+1, y+1, z, x+1, y+1, z+1, x, y+1, z+1, 0xb3200000|pos, outline);
         if(playerX < x && world[pos-16384] < 128)
             render_plane(buffer, x, y, z, x, y+1, z, x, y+1, z+1, x, y, z+1, 0xb3400000|pos, outline);
         if(playerX > x+1 && world[pos+16384] < 128)
