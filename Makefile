@@ -4,13 +4,13 @@ src.jar: src/Main.class src/org/homebrew/GameMain.class src/org/homebrew/MapGen.
 	rm -f src.jar
 	cd src; zip -r ../src.jar .
 
-src/Main.class: src/Main.java
+src/Main.class: src/Main.java src/org/homebrew/TextureAtlas.java
 	$(JAVAC) src/Main.java
 
-src/org/homebrew/GameMain.class: src/org/homebrew/GameMain.java
+src/org/homebrew/GameMain.class: src/org/homebrew/GameMain.java src/org/homebrew/TextureAtlas.java
 	$(JAVAC) src/org/homebrew/GameMain.java
 
-src/org/homebrew/MapGen.class: src/org/homebrew/MapGen.java
+src/org/homebrew/MapGen.class: src/org/homebrew/MapGen.java src/org/homebrew/TextureAtlas.java
 	$(JAVAC) src/org/homebrew/MapGen.java
 
 src/org/homebrew/TextureAtlas.class: src/org/homebrew/TextureAtlas.java
