@@ -36,6 +36,7 @@ public class GameMain
     private int vel_pitch;
     private long prev_time;
     private int[] texture_atlas;
+    private int pointed_to;
     public GameMain()
     {
         world = new byte[128*128*128];
@@ -52,6 +53,7 @@ public class GameMain
         keyStates = new boolean[1024];
         prev_time = System.currentTimeMillis();
         texture_atlas = TextureAtlas.atlas;
+        pointed_to = -1;
     }
     public void render(int[] buffer)
     {
@@ -109,6 +111,10 @@ public class GameMain
         int pX = (int)(playerX*65536);
         int pY = (int)(playerY*65536);
         int pZ = (int)(playerZ*65536);
+        if((buffer[640*240+320] & 0xff000000) == 0xb3000000)
+            pointed_to = buffer[640*240+320] & 0x00ffffff;
+        else
+            pointed_to = -1;
         for(int i = 0; i < 640*480; i++)
             if(buffer[i] == 0)
                 buffer[i] = -1;
@@ -311,14 +317,14 @@ public class GameMain
             zz += (z-playerZ)*c3;
         if(zz < 0) // block is fully invisible
             return;
-        if(point_out_of_screen(x, y, z)
-        && point_out_of_screen(x+1, y, z)
-        && point_out_of_screen(x, y+1, z)
-        && point_out_of_screen(x+1, y+1, z)
-        && point_out_of_screen(x, y, z+1)
-        && point_out_of_screen(x+1, y, z+1)
-        && point_out_of_screen(x, y+1, z+1)
-        && point_out_of_screen(x+1, y+1, z+1)) // block is in front of the player but outside of the frame
+        if((point_out_of_screen(x, y, z)
+          & point_out_of_screen(x+1, y, z)
+          & point_out_of_screen(x, y+1, z)
+          & point_out_of_screen(x+1, y+1, z)
+          & point_out_of_screen(x, y, z+1)
+          & point_out_of_screen(x+1, y, z+1)
+          & point_out_of_screen(x, y+1, z+1)
+          & point_out_of_screen(x+1, y+1, z+1)) != 0) // block is in front of the player but outside of the frame
             return;
         if(x != 127 && x >= px)
             dfs_preflight(preflight, world, x+1, y, z, px, py, pz);
@@ -333,7 +339,7 @@ public class GameMain
         if(z != 0 && z <= pz)
             dfs_preflight(preflight, world, x, y, z-1, px, py, pz);
     }
-    private boolean point_out_of_screen(double x, double y, double z)
+    private int point_out_of_screen(double x, double y, double z)
     {
         x -= playerX;
         y -= playerY;
@@ -347,7 +353,16 @@ public class GameMain
         z = tmp;
         x = 320 + (x / z) * 250;
         y = 240 - (y / z) * 250;
-        return x < 0 || x > 640 || y < 0 || y > 480;
+        int mask = 0;
+        if(x < 0)
+            mask |= 1;
+        if(x > 640)
+            mask |= 2;
+        if(y < 0)
+            mask |= 4;
+        if(y > 480)
+            mask |= 8;
+        return mask;
     }
     private void render_block(int[] buffer, int x, int y, int z)
     {
@@ -689,6 +704,32 @@ public class GameMain
             vel_yaw++;
         if(key == 40)
             vel_pitch--;
+        if((key == 27 || key == 19 || key == 415) && pointed_to >= 0)
+            world[pointed_to&0x1fffff] = 0; // remove block
+        if((key == 112 || key == 461) && pointed_to >= 0 && world[pointed_to&0x1fffff] != 0)
+        {
+            int side = pointed_to >> 21;
+            int x = (pointed_to >> 14) & 127;
+            int z = (pointed_to >> 7) & 127;
+            int y = pointed_to & 127;
+            if(side == 0)
+                y--;
+            else if(side == 1)
+                y++;
+            else if(side == 2)
+                x--;
+            else if(side == 3)
+                x++;
+            else if(side == 4)
+                z--;
+            else
+                z++;
+            if(x >= 0 && x < 128 && y >= 0 && y < 128 && z >= 0 && z < 128 && world[16384*x+128*z+y] == 0)
+                if(playerX < x - 0.3 || playerX > x + 1.3
+                || playerY < y - 0.3 || playerY > y + 2.6
+                || playerZ < z - 0.3 || playerZ > z + 1.3)
+                    world[16384*x+128*z+y] = (byte)129;
+        }
     }
     private void onkeyup(int key)
     {

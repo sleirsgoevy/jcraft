@@ -5,7 +5,7 @@ import org.homebrew.GameMain;
 
 import javax.imageio.ImageIO;
 
-public class Main extends Frame implements KeyListener
+public class Main extends Frame implements KeyListener, WindowListener
 {
     private GameMain game;
     private BufferedImage frame;
@@ -33,6 +33,7 @@ public class Main extends Frame implements KeyListener
             }
         }).start();
         addKeyListener(this);
+        addWindowListener(this);
     }
     public void my_paint(Graphics g)
     {
@@ -54,6 +55,19 @@ public class Main extends Frame implements KeyListener
         }
     }
     public void keyTyped(KeyEvent e){}
+    public void windowActivated(WindowEvent e){}
+    public void windowClosed(WindowEvent e)
+    {
+        System.exit(0);
+    }
+    public void windowClosing(WindowEvent e)
+    {
+        System.exit(0);
+    }
+    public void windowDeactivated(WindowEvent e){}
+    public void windowDeiconified(WindowEvent e){}
+    public void windowIconified(WindowEvent e){}
+    public void windowOpened(WindowEvent e){}
     public static void main(String[] argv) throws Exception
     {
         new Main();

@@ -5,7 +5,7 @@ import java.util.HashMap;
 
 class MapGen
 {
-    private static final boolean OLD_MAP = false;
+    private static final int MAP_VERSION = 1;
     public static void generate(byte[] world, int seed)
     {
         Random r = new Random(seed);
@@ -19,7 +19,7 @@ class MapGen
                 {
                     int pos = y*129+x;
                     int cur = (heightmap[pos-130*step] + heightmap[pos-128*step] + heightmap[pos+128*step] + heightmap[pos+130*step]) / 4;
-                    if(OLD_MAP)
+                    if(MAP_VERSION == 0)
                         cur += r.nextInt(2*step) - step;
                     else
                         cur += r.nextInt((step*step)/64+1)-(step*step)/128;
@@ -38,7 +38,7 @@ class MapGen
                               +heightmap[((y+step)%129)*129+x]
                               +heightmap[y*129+(x+129-step)%129]
                               +heightmap[y*129+(x+step)%129])/4;
-                    if(OLD_MAP)
+                    if(MAP_VERSION == 0)
                         cur += r.nextInt(2*step) - step;
                     else
                         cur += r.nextInt((step*step)/64+1)-(step*step)/128;
