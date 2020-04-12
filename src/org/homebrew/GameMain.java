@@ -307,11 +307,7 @@ public class GameMain
             return;
         preflight[idx] = (byte)(preflight[idx] | mask);
         if((world[pos] & 128) != 0) // can't see through solid blocks
-        {
-            if(y > maxHeight[pos>>7])
-                throw new RuntimeException("maxHeight fucked up");
             return;
-        }
         boolean skyHit = true;
         for(int xi = (x==0?x:x-1); xi <= x + 1 && xi < 128; xi++)
             for(int zi = (z==0?x:z-1); zi <= z + 1 && zi < 128; zi++)
