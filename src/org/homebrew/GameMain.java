@@ -17,15 +17,23 @@ public class GameMain
         2, 2, 2 /* dirt */,
     };
     private byte[] world;
+    private byte[] maxHeight;
     private double playerX;
+    private int playerX_fp;
     private double playerY;
+    private int playerY_fp;
     private double playerZ;
+    private int playerZ_fp;
     private double playerYaw;
     private double playerYaw_cos;
+    private int playerYaw_cos_fp;
     private double playerYaw_sin;
+    private int playerYaw_sin_fp;
     private double playerPitch;
     private double playerPitch_cos;
+    private int playerPitch_cos_fp;
     private double playerPitch_sin;
+    private int playerPitch_sin_fp;
     private byte[] preflight;
     private int[] dsu;
     private boolean[] keyStates;
@@ -40,7 +48,12 @@ public class GameMain
     public GameMain()
     {
         world = new byte[128*128*128];
+        maxHeight = new byte[128*128];
         MapGen.generate(world, 179);
+        for(int i = 0; i < 128*128; i++)
+            for(int j = 0; j < 128; j++)
+                if(world[128*i+j] != 0)
+                    maxHeight[i] = (byte)j;
         playerX = playerZ = 64;
         playerY = 127;
         playerYaw = playerYaw_sin = playerPitch_cos = 0;
@@ -104,13 +117,6 @@ public class GameMain
         int prev_pos = -1;
         int prev_side = -1;
         int tex_start = -1;
-        int ycos = (int)(playerYaw_cos*65536);
-        int ysin = (int)(playerYaw_sin*65536);
-        int pcos = (int)(playerPitch_cos*65536);
-        int psin = (int)(playerPitch_sin*65536);
-        int pX = (int)(playerX*65536);
-        int pY = (int)(playerY*65536);
-        int pZ = (int)(playerZ*65536);
         if((buffer[640*240+320] & 0xff000000) == 0xb3000000)
             pointed_to = buffer[640*240+320] & 0x00ffffff;
         else
@@ -136,18 +142,18 @@ public class GameMain
                     int tex_id = block_textures[3*((255&(int)world[pos])-128)+side2];
                     tex_start = 4096*(tex_id/16)+16*(tex_id%16);
                 }
-                int bx_fp = ((pos >> 14) << 16) - pX;
-                int bz_fp = (((pos >> 7) & 127) << 16) - pZ;
-                int by_fp = ((pos & 127) << 16) - pY;
+                int bx_fp = ((pos >> 14) << 16) - playerX_fp;
+                int bz_fp = (((pos >> 7) & 127) << 16) - playerZ_fp;
+                int by_fp = ((pos & 127) << 16) - playerY_fp;
                 int vx_fp = ((i%640-320) << 16)/250;
                 int vy_fp = ((240-i/640) << 16)/250;
                 int vz_fp = 65536;
                 int tmp_fp;
-                tmp_fp = (int)((vz_fp * (long)pcos - vy_fp * (long)psin)>>16);
-                vy_fp = (int)((vy_fp * (long)pcos + vz_fp * (long)psin)>>16);
+                tmp_fp = (int)((vz_fp * (long)playerPitch_cos_fp - vy_fp * (long)playerPitch_sin_fp)>>16);
+                vy_fp = (int)((vy_fp * (long)playerPitch_cos_fp + vz_fp * (long)playerPitch_sin_fp)>>16);
                 vz_fp = tmp_fp;
-                tmp_fp = (int)((vx_fp * (long)ycos + vz_fp * (long)ysin)>>16);
-                vz_fp = (int)((vz_fp * (long)ycos - vx_fp * (long)ysin)>>16);
+                tmp_fp = (int)((vx_fp * (long)playerYaw_cos_fp + vz_fp * (long)playerYaw_sin_fp)>>16);
+                vz_fp = (int)((vz_fp * (long)playerYaw_cos_fp - vx_fp * (long)playerYaw_sin_fp)>>16);
                 vx_fp = tmp_fp;
                 if(side < 2) // y=c
                 {
@@ -284,6 +290,13 @@ public class GameMain
                     }
         }
         prev_time = cur_time;
+        playerX_fp = (int)(playerX*65536);
+        playerY_fp = (int)(playerY*65536);
+        playerZ_fp = (int)(playerZ*65536);
+        playerPitch_cos_fp = (int)(playerPitch_cos*65536);
+        playerPitch_sin_fp = (int)(playerPitch_sin*65536);
+        playerYaw_cos_fp = (int)(playerYaw_cos*65536);
+        playerYaw_sin_fp = (int)(playerYaw_sin*65536);
     }
     private void dfs_preflight(byte[] preflight, byte[] world, int x, int y, int z, int px, int py, int pz)
     {
@@ -294,28 +307,37 @@ public class GameMain
             return;
         preflight[idx] = (byte)(preflight[idx] | mask);
         if((world[pos] & 128) != 0) // can't see through solid blocks
+        {
+            if(y > maxHeight[pos>>7])
+                throw new RuntimeException("maxHeight fucked up");
             return;
+        }
+        boolean skyHit = true;
+        for(int xi = (x==0?x:x-1); xi <= x + 1 && xi < 128; xi++)
+            for(int zi = (z==0?x:z-1); zi <= z + 1 && zi < 128; zi++)
+                if(y <= maxHeight[128*xi+zi])
+                    skyHit = false;
         // ycos       0    -ysin
         // -ysin*psin pcos -ycos*psin
         // ysin*pcos  psin ycos*pcos
-        double c1, c2, c3;
-        c1 = playerYaw_sin*playerPitch_cos;
-        c2 = playerPitch_sin;
-        c3 = playerYaw_cos*playerPitch_cos;
-        double zz = 0;
-        if(c1 > 0)
-            zz += (x+1-playerX)*c1;
+        long c1_fp, c2_fp, c3_fp;
+        c1_fp = (playerYaw_sin_fp*(long)playerPitch_cos_fp)>>16;
+        c2_fp = playerPitch_sin_fp;
+        c3_fp = (playerYaw_cos_fp*(long)playerPitch_cos_fp)>>16;
+        int zz_fp = 0;
+        if(c1_fp > 0)
+            zz_fp += (int)(((((x+1)<<16)-playerX_fp)*c1_fp)>>16);
         else
-            zz += (x-playerX)*c1;
-        if(c2 > 0)
-            zz += (y+1-playerY)*c2;
+            zz_fp += (int)((((x<<16)-playerX_fp)*c1_fp)>>16);
+        if(c2_fp > 0)
+            zz_fp += (int)(((((y+1)<<16)-playerY_fp)*c2_fp)>>16);
         else
-            zz += (y-playerY)*c2;
-        if(c3 > 0)
-            zz += (z+1-playerZ)*c3;
+            zz_fp += (int)((((y<<16)-playerY_fp)*c2_fp)>>16);
+        if(c3_fp > 0)
+            zz_fp += (int)(((((z+1)<<16)-playerZ_fp)*c3_fp)>>16);
         else
-            zz += (z-playerZ)*c3;
-        if(zz < 0) // block is fully invisible
+            zz_fp += (int)((((z<<16)-playerZ_fp)*c3_fp)>>16);
+        if(zz_fp < 0) // block is fully invisible
             return;
         if((point_out_of_screen(x, y, z)
           & point_out_of_screen(x+1, y, z)
@@ -330,7 +352,7 @@ public class GameMain
             dfs_preflight(preflight, world, x+1, y, z, px, py, pz);
         if(x != 0 && x <= px)
             dfs_preflight(preflight, world, x-1, y, z, px, py, pz);
-        if(y != 127 && y >= py)
+        if(y != 127 && y >= py && !skyHit)
             dfs_preflight(preflight, world, x, y+1, z, px, py, pz);
         if(y != 0 && y <= py)
             dfs_preflight(preflight, world, x, y-1, z, px, py, pz);
@@ -339,28 +361,30 @@ public class GameMain
         if(z != 0 && z <= pz)
             dfs_preflight(preflight, world, x, y, z-1, px, py, pz);
     }
-    private int point_out_of_screen(double x, double y, double z)
+    private int point_out_of_screen(int x_fp, int y_fp, int z_fp)
     {
-        x -= playerX;
-        y -= playerY;
-        z -= playerZ;
-        double tmp;
-        tmp = x * playerYaw_cos - z * playerYaw_sin;
-        z = x * playerYaw_sin + z * playerYaw_cos;
-        x = tmp;
-        tmp = z * playerPitch_cos + y * playerPitch_sin;
-        y = y * playerPitch_cos - z * playerPitch_sin;
-        z = tmp;
-        x = 320 + (x / z) * 250;
-        y = 240 - (y / z) * 250;
+        x_fp = (x_fp<<16) - playerX_fp;
+        y_fp = (y_fp<<16) - playerY_fp;
+        z_fp = (z_fp<<16) - playerZ_fp;
+        int tmp_fp;
+        tmp_fp = (int)((x_fp * (long)playerYaw_cos_fp - z_fp * (long)playerYaw_sin_fp)>>16);
+        z_fp = (int)((x_fp * (long)playerYaw_sin_fp + z_fp * (long)playerYaw_cos_fp)>>16);
+        x_fp = tmp_fp;
+        tmp_fp = (int)((z_fp * (long)playerPitch_cos_fp + y_fp * (long)playerPitch_sin_fp)>>16);
+        y_fp = (int)((y_fp * (long)playerPitch_cos_fp - z_fp * (long)playerPitch_sin_fp)>>16);
+        z_fp = tmp_fp;
+        if(z_fp == 0)
+            return 0;
+        long x_fpl = 320*65536 + (x_fp*(250l*65536l)) / z_fp;
+        long y_fpl = 240*65536 - (y_fp*(250l*65536l)) / z_fp;
         int mask = 0;
-        if(x < 0)
+        if(x_fpl < 0)
             mask |= 1;
-        if(x > 640)
+        if(x_fpl > 640*65536)
             mask |= 2;
-        if(y < 0)
+        if(y_fpl < 0)
             mask |= 4;
-        if(y > 480)
+        if(y_fpl > 480*65536)
             mask |= 8;
         return mask;
     }
@@ -388,287 +412,282 @@ public class GameMain
         if(playerZ > z+1 && world[pos+128] < 128)
             render_plane(buffer, x, y, z+1, x+1, y, z+1, x+1, y+1, z+1, x, y+1, z+1, 0xb3a00000|pos, outline);
     }
-    private void render_plane(int[] buffer, double x1, double y1, double z1, double x2, double y2, double z2, double x3, double y3, double z3, double x4, double y4, double z4, int color, boolean outline)
+    private void render_plane(int[] buffer, int x1_fp, int y1_fp, int z1_fp, int x2_fp, int y2_fp, int z2_fp, int x3_fp, int y3_fp, int z3_fp, int x4_fp, int y4_fp, int z4_fp, int color, boolean outline)
     {
-        x1 -= playerX;
-        x2 -= playerX;
-        x3 -= playerX;
-        x4 -= playerX;
-        y1 -= playerY;
-        y2 -= playerY;
-        y3 -= playerY;
-        y4 -= playerY;
-        z1 -= playerZ;
-        z2 -= playerZ;
-        z3 -= playerZ;
-        z4 -= playerZ;
-        double tmp;
-        tmp = x1 * playerYaw_cos - z1 * playerYaw_sin;
-        z1 = x1 * playerYaw_sin + z1 * playerYaw_cos;
-        x1 = tmp;
-        tmp = z1 * playerPitch_cos + y1 * playerPitch_sin;
-        y1 = y1 * playerPitch_cos - z1 * playerPitch_sin;
-        z1 = tmp;
-        tmp = x2 * playerYaw_cos - z2 * playerYaw_sin;
-        z2 = x2 * playerYaw_sin + z2 * playerYaw_cos;
-        x2 = tmp;
-        tmp = z2 * playerPitch_cos + y2 * playerPitch_sin;
-        y2 = y2 * playerPitch_cos - z2 * playerPitch_sin;
-        z2 = tmp;
-        tmp = x3 * playerYaw_cos - z3 * playerYaw_sin;
-        z3 = x3 * playerYaw_sin + z3 * playerYaw_cos;
-        x3 = tmp;
-        tmp = z3 * playerPitch_cos + y3 * playerPitch_sin;
-        y3 = y3 * playerPitch_cos - z3 * playerPitch_sin;
-        z3 = tmp;
-        tmp = x4 * playerYaw_cos - z4 * playerYaw_sin;
-        z4 = x4 * playerYaw_sin + z4 * playerYaw_cos;
-        x4 = tmp;
-        tmp = z4 * playerPitch_cos + y4 * playerPitch_sin;
-        y4 = y4 * playerPitch_cos - z4 * playerPitch_sin;
-        z4 = tmp;
+        x1_fp = (x1_fp<<16) - playerX_fp;
+        x2_fp = (x2_fp<<16) - playerX_fp;
+        x3_fp = (x3_fp<<16) - playerX_fp;
+        x4_fp = (x4_fp<<16) - playerX_fp;
+        y1_fp = (y1_fp<<16) - playerY_fp;
+        y2_fp = (y2_fp<<16) - playerY_fp;
+        y3_fp = (y3_fp<<16) - playerY_fp;
+        y4_fp = (y4_fp<<16) - playerY_fp;
+        z1_fp = (z1_fp<<16) - playerZ_fp;
+        z2_fp = (z2_fp<<16) - playerZ_fp;
+        z3_fp = (z3_fp<<16) - playerZ_fp;
+        z4_fp = (z4_fp<<16) - playerZ_fp;
+        int tmp_fp;
+        tmp_fp = (int)((x1_fp * (long)playerYaw_cos_fp - z1_fp * (long)playerYaw_sin_fp)>>16);
+        z1_fp = (int)((x1_fp * (long)playerYaw_sin_fp + z1_fp * (long)playerYaw_cos_fp)>>16);
+        x1_fp = tmp_fp;
+        tmp_fp = (int)((z1_fp * (long)playerPitch_cos_fp + y1_fp * (long)playerPitch_sin_fp)>>16);
+        y1_fp = (int)((y1_fp * (long)playerPitch_cos_fp - z1_fp * (long)playerPitch_sin_fp)>>16);
+        z1_fp = tmp_fp;
+        tmp_fp = (int)((x2_fp * (long)playerYaw_cos_fp - z2_fp * (long)playerYaw_sin_fp)>>16);
+        z2_fp = (int)((x2_fp * (long)playerYaw_sin_fp + z2_fp * (long)playerYaw_cos_fp)>>16);
+        x2_fp = tmp_fp;
+        tmp_fp = (int)((z2_fp * (long)playerPitch_cos_fp + y2_fp * (long)playerPitch_sin_fp)>>16);
+        y2_fp = (int)((y2_fp * (long)playerPitch_cos_fp - z2_fp * (long)playerPitch_sin_fp)>>16);
+        z2_fp = tmp_fp;
+        tmp_fp = (int)((x3_fp * (long)playerYaw_cos_fp - z3_fp * (long)playerYaw_sin_fp)>>16);
+        z3_fp = (int)((x3_fp * (long)playerYaw_sin_fp + z3_fp * (long)playerYaw_cos_fp)>>16);
+        x3_fp = tmp_fp;
+        tmp_fp = (int)((z3_fp * (long)playerPitch_cos_fp + y3_fp * (long)playerPitch_sin_fp)>>16);
+        y3_fp = (int)((y3_fp * (long)playerPitch_cos_fp - z3_fp * (long)playerPitch_sin_fp)>>16);
+        z3_fp = tmp_fp;
+        tmp_fp = (int)((x4_fp * (long)playerYaw_cos_fp - z4_fp * (long)playerYaw_sin_fp)>>16);
+        z4_fp = (int)((x4_fp * (long)playerYaw_sin_fp + z4_fp * (long)playerYaw_cos_fp)>>16);
+        x4_fp = tmp_fp;
+        tmp_fp = (int)((z4_fp * (long)playerPitch_cos_fp + y4_fp * (long)playerPitch_sin_fp)>>16);
+        y4_fp = (int)((y4_fp * (long)playerPitch_cos_fp - z4_fp * (long)playerPitch_sin_fp)>>16);
+        z4_fp = tmp_fp;
         if(outline)
         {
-            draw_line(buffer, x1, y1, z1, x2, y2, z2);
-            draw_line(buffer, x2, y2, z2, x3, y3, z3);
-            draw_line(buffer, x3, y3, z3, x4, y4, z4);
-            draw_line(buffer, x4, y4, z4, x1, y1, z1);
+            draw_line(buffer, x1_fp, y1_fp, z1_fp, x2_fp, y2_fp, z2_fp);
+            draw_line(buffer, x2_fp, y2_fp, z2_fp, x3_fp, y3_fp, z3_fp);
+            draw_line(buffer, x3_fp, y3_fp, z3_fp, x4_fp, y4_fp, z4_fp);
+            draw_line(buffer, x4_fp, y4_fp, z4_fp, x1_fp, y1_fp, z1_fp);
         }
-        render3(buffer, dsu, x1, y1, z1, x2, y2, z2, x3, y3, z3, color);
-        render3(buffer, dsu, x1, y1, z1, x4, y4, z4, x3, y3, z3, color);
+        render3(buffer, dsu, x1_fp, y1_fp, z1_fp, x2_fp, y2_fp, z2_fp, x3_fp, y3_fp, z3_fp, color);
+        render3(buffer, dsu, x1_fp, y1_fp, z1_fp, x4_fp, y4_fp, z4_fp, x3_fp, y3_fp, z3_fp, color);
     }
-    private static void draw_line(int[] buffer, double x1, double y1, double z1, double x2, double y2, double z2)
+    private static void draw_line(int[] buffer, int x1_fp, int y1_fp, int z1_fp, int x2_fp, int y2_fp, int z2_fp)
     {
-        double tmp;
-        if(z1 > z2)
+        int tmp_fp;
+        if(z1_fp > z2_fp)
         {
-            tmp = x1;
-            x1 = x2;
-            x2 = tmp;
-            tmp = y1;
-            y1 = y2;
-            y2 = tmp;
-            tmp = z1;
-            z1 = z2;
-            z2 = tmp;
+            tmp_fp = x1_fp;
+            x1_fp = x2_fp;
+            x2_fp = tmp_fp;
+            tmp_fp = y1_fp;
+            y1_fp = y2_fp;
+            y2_fp = tmp_fp;
+            tmp_fp = z1_fp;
+            z1_fp = z2_fp;
+            z2_fp = tmp_fp;
         }
-        if(z2 < 1e-6)
+        if(z2_fp <= 0)
             return; // invisible
-        else if(z1 < 1e-6)
+        else if(z1_fp <= 0)
         {
-            tmp = (z2 - 1e-6) / (z2 - z1);
-            x1 = x2 - (x2 - x1) * tmp;
-            y1 = y2 - (y2 - y1) * tmp;
-            z1 = 1e-6;
+            tmp_fp = (int)((((long)(z2_fp - 1)<<16)) / (z2_fp - z1_fp));
+            x1_fp = x2_fp - (int)(((x2_fp-x1_fp)*(long)tmp_fp)>>16);
+            y1_fp = y2_fp - (int)(((y2_fp-y1_fp)*(long)tmp_fp)>>16);
+            z1_fp = 1;
         }
-        x1 = 320 + (x1 / z1) * 250;
-        y1 = 240 - (y1 / z1) * 250;
-        x2 = 320 + (x2 / z2) * 250;
-        y2 = 240 - (y2 / z2) * 250;
-        if(x1 == x2 && y1 == y2)
+        long x1_fpl = 320*65536 + (x1_fp*(250l*65536l)) / z1_fp;
+        long y1_fpl = 240*65536 - (y1_fp*(250l*65536l)) / z1_fp;
+        long x2_fpl = 320*65536 + (x2_fp*(250l*65536l)) / z2_fp;
+        long y2_fpl = 240*65536 - (y2_fp*(250l*65536l)) / z2_fp;
+        if(x1_fpl == x2_fpl && y1_fpl == y2_fpl)
         {
-            if(x1 >= 0 && x1 <= 639 && y1 >= 0 && y1 <= 639)
+            if(x1_fpl >= 0 && x1_fpl <= 639*65536 && y1_fpl >= 0 && y1_fpl <= 479*65536)
             {
-                int x = (int)x1;
-                int y = (int)y1;
+                int x = (int)(x1_fpl>>16);
+                int y = (int)(y1_fpl>>16);
                 if(buffer[y*640+x] == 0)
                     buffer[y*640+x] = 0xff000000; // black
             }
             return;
         }
-        double xdiff = x1 - x2;
-        double ydiff = y1 - y2;
-        double xd = xdiff<0?-xdiff:xdiff;
-        double yd = ydiff<0?-ydiff:ydiff;
-        if(xd > yd)
+        long xdiff_fpl = x1_fpl - x2_fpl;
+        long ydiff_fpl = y1_fpl - y2_fpl;
+        long xd_fpl = xdiff_fpl<0?-xdiff_fpl:xdiff_fpl;
+        long yd_fpl = ydiff_fpl<0?-ydiff_fpl:ydiff_fpl;
+        if(xd_fpl > yd_fpl)
         {
-            double xstart = (xdiff<0)?x1:x2;
-            double xend = x1+x2-xstart;
-            if(xstart < 0)
-                xstart = 0;
-            if(xend > 639)
-                xend = 639;
-            int xa = (int)Math.floor(xstart);
-            int xb = (int)Math.ceil(xend);
+            long xstart_fpl = (xdiff_fpl<0)?x1_fpl:x2_fpl;
+            long xend_fpl = x1_fpl+x2_fpl-xstart_fpl;
+            if(xstart_fpl < 0)
+                xstart_fpl = 0;
+            if(xend_fpl > 639*65536)
+                xend_fpl = 639*65536;
+            int xa = (int)(xstart_fpl>>16);
+            int xb = (int)((xend_fpl+65535)>>16);
             for(int x = xa; x <= xb; x++)
             {
-                int y = (int)(y1 + (y2 - y1) * (x - x1) / (x2 - x1));
+                int y = (int)((y1_fpl + (y2_fpl - y1_fpl) * ((x<<16) - x1_fpl) / (x2_fpl - x1_fpl))>>16);
                 if(y >= 0 && y < 480 && buffer[y*640+x] == 0)
                     buffer[y*640+x] = 0xff000000; //black
             }
         }
         else
         {
-            double ystart = (ydiff<0)?y1:y2;
-            double yend = y1+y2-ystart;
-            if(ystart < 0)
-                ystart = 0;
-            if(yend > 479)
-                yend = 479;
-            int ya = (int)Math.floor(ystart);
-            int yb = (int)Math.ceil(yend);
+            long ystart_fpl = ((ydiff_fpl<0)?y1_fpl:y2_fpl);
+            long yend_fpl = y1_fpl+y2_fpl-ystart_fpl;
+            if(ystart_fpl < 0)
+                ystart_fpl = 0;
+            if(yend_fpl > 479*65536)
+                yend_fpl = 479*65536;
+            int ya = (int)(ystart_fpl>>16);
+            int yb = (int)((yend_fpl+65535)>>16);
             for(int y = ya; y <= yb; y++)
             {
-                int x = (int)(x1 + (x2 - x1) * (y - y1) / (y2 - y1));
+                int x = (int)((x1_fpl + (x2_fpl - x1_fpl) * ((y<<16) - y1_fpl) / (y2_fpl - y1_fpl))>>16);
                 if(x >= 0 && x < 640 && buffer[y*640+x] == 0)
                     buffer[y*640+x] = 0xff000000; //black
             }
         }
     }
-    private static void render3(int[] buffer, int[] dsu, double x1, double y1, double z1, double x2, double y2, double z2, double x3, double y3, double z3, int color)
+    private static void render3(int[] buffer, int[] dsu, int x1_fp, int y1_fp, int z1_fp, int x2_fp, int y2_fp, int z2_fp, int x3_fp, int y3_fp, int z3_fp, int color)
     {
-        double tmp;
-        if(z1 > z2)
+        int tmp_fp;
+        if(z1_fp > z2_fp)
         {
-            tmp = x1;
-            x1 = x2;
-            x2 = tmp;
-            tmp = y1;
-            y1 = y2;
-            y2 = tmp;
-            tmp = z1;
-            z1 = z2;
-            z2 = tmp;
+            tmp_fp = x1_fp;
+            x1_fp = x2_fp;
+            x2_fp = tmp_fp;
+            tmp_fp = y1_fp;
+            y1_fp = y2_fp;
+            y2_fp = tmp_fp;
+            tmp_fp = z1_fp;
+            z1_fp = z2_fp;
+            z2_fp = tmp_fp;
         }
-        if(z1 > z3)
+        if(z1_fp > z3_fp)
         {
-            tmp = x1;
-            x1 = x3;
-            x3 = tmp;
-            tmp = y1;
-            y1 = y3;
-            y3 = tmp;
-            tmp = z1;
-            z1 = z3;
-            z3 = tmp;
+            tmp_fp = x1_fp;
+            x1_fp = x3_fp;
+            x3_fp = tmp_fp;
+            tmp_fp = y1_fp;
+            y1_fp = y3_fp;
+            y3_fp = tmp_fp;
+            tmp_fp = z1_fp;
+            z1_fp = z3_fp;
+            z3_fp = tmp_fp;
         }
-        if(z2 > z3)
+        if(z2_fp > z3_fp)
         {
-            tmp = x2;
-            x2 = x3;
-            x3 = tmp;
-            tmp = y2;
-            y2 = y3;
-            y3 = tmp;
-            tmp = z2;
-            z2 = z3;
-            z3 = tmp;
+            tmp_fp = x2_fp;
+            x2_fp = x3_fp;
+            x3_fp = tmp_fp;
+            tmp_fp = y2_fp;
+            y2_fp = y3_fp;
+            y3_fp = tmp_fp;
+            tmp_fp = z2_fp;
+            z2_fp = z3_fp;
+            z3_fp = tmp_fp;
         }
-        if(z3 < 1e-6)
+        if(z3_fp <= 0)
             return; // invisible to the player
-        else if(z2 < 1e-6)
+        else if(z2_fp <= 0)
         {
-            tmp = (z3 - 1e-6) / (z3 - z2);
-            x2 = x3 - (x3 - x2) * tmp;
-            y2 = y3 - (y3 - y2) * tmp;
-            z2 = 1e-6;
-            tmp = (z3 - 1e-6) / (z3 - z1);
-            x1 = x3 - (x3 - x1) * tmp;
-            y1 = y3 - (y3 - y1) * tmp;
-            z1 = 1e-6;
+            tmp_fp = (int)((((long)(z3_fp-1))<<16) / (z3_fp - z2_fp));
+            x2_fp = x3_fp - (int)(((x3_fp - x2_fp) * (long)tmp_fp)>>16);
+            y2_fp = y3_fp - (int)(((y3_fp - y2_fp) * (long)tmp_fp)>>16);
+            z2_fp = 1;
+            tmp_fp = (int)((((long)(z3_fp-1))<<16) / (z3_fp - z1_fp));
+            x1_fp = x3_fp - (int)(((x3_fp - x1_fp) * (long)tmp_fp)>>16);
+            y1_fp = y3_fp - (int)(((y3_fp - y1_fp) * (long)tmp_fp)>>16);
+            z1_fp = 1;
         }
-        else if(z1 < 1e-6)
+        else if(z1_fp <= 0)
         {
-            double x4, y4, z4, x5, y5, z5;
-            tmp = (z2 - 1e-6) / (z2 - z1);
-            x4 = x2 - (x2 - x1) * tmp;
-            y4 = y2 - (y2 - y1) * tmp;
-            z4 = 1e-6;
-            tmp = (z3 - 1e-6) / (z3 - z1);
-            x5 = x3 - (x3 - x1) * tmp;
-            y5 = y3 - (y3 - y1) * tmp;
-            z5 = 1e-6;
-            render3_raw(buffer, dsu, x4, y4, z4, x5, y5, z5, x3, y3, z3, color);
-            render3_raw(buffer, dsu, x4, y4, z4, x2, y2, z2, x3, y3, z3, color);
+            int x4_fp, y4_fp, z4_fp, x5_fp, y5_fp, z5_fp;
+            tmp_fp = (int)((((long)(z2_fp-1))<<16) / (z2_fp - z1_fp));
+            x4_fp = x2_fp - (int)(((x2_fp - x1_fp) * (long)tmp_fp)>>16);
+            y4_fp = y2_fp - (int)(((y2_fp - y1_fp) * (long)tmp_fp)>>16);
+            z4_fp = 1;
+            tmp_fp = (int)((((long)(z3_fp-1))<<16) / (z3_fp - z1_fp));
+            x5_fp = x3_fp - (int)(((x3_fp - x1_fp) * (long)tmp_fp)>>16);
+            y5_fp = y3_fp - (int)(((y3_fp - y1_fp) * (long)tmp_fp)>>16);
+            z5_fp = 1;
+            render3_raw(buffer, dsu, x4_fp, y4_fp, z4_fp, x5_fp, y5_fp, z5_fp, x3_fp, y3_fp, z3_fp, color);
+            render3_raw(buffer, dsu, x4_fp, y4_fp, z4_fp, x2_fp, y2_fp, z2_fp, x3_fp, y3_fp, z3_fp, color);
             return;
         }
-        render3_raw(buffer, dsu, x1, y1, z1, x2, y2, z2, x3, y3, z3, color);
+        render3_raw(buffer, dsu, x1_fp, y1_fp, z1_fp, x2_fp, y2_fp, z2_fp, x3_fp, y3_fp, z3_fp, color);
     }
-    private static void render3_raw(int[] buffer, int[] dsu, double x1, double y1, double z1, double x2, double y2, double z2, double x3, double y3, double z3, int color)
+    private static void render3_raw(int[] buffer, int[] dsu, int x1_fp, int y1_fp, int z1_fp, int x2_fp, int y2_fp, int z2_fp, int x3_fp, int y3_fp, int z3_fp, int color)
     {
-        double x1_0 = x1;
-        double x2_0 = x2;
-        double x3_0 = x3;
-        double y1_0 = y1;
-        double y2_0 = y2;
-        double y3_0 = y3;
-        double z1_0 = z1;
-        double z2_0 = z2;
-        double z3_0 = z3;
-        x1 = 320 + (x1 / z1) * 250;
-        y1 = 240 - (y1 / z1) * 250;
-        x2 = 320 + (x2 / z2) * 250;
-        y2 = 240 - (y2 / z2) * 250;
-        x3 = 320 + (x3 / z3) * 250;
-        y3 = 240 - (y3 / z3) * 250;
-        double tmp;
-        if(y1 > y2)
+        long x1_fpl = 320*65536 + (x1_fp*(250l*65536l)) / z1_fp;
+        long y1_fpl = 240*65536 - (y1_fp*(250l*65536l)) / z1_fp;
+        long x2_fpl = 320*65536 + (x2_fp*(250l*65536l)) / z2_fp;
+        long y2_fpl = 240*65536 - (y2_fp*(250l*65536l)) / z2_fp;
+        long x3_fpl = 320*65536 + (x3_fp*(250l*65536l)) / z3_fp;
+        long y3_fpl = 240*65536 - (y3_fp*(250l*65536l)) / z3_fp;
+        long tmp_fpl;
+        if(y1_fpl > y2_fpl)
         {
-            tmp = x1;
-            x1 = x2;
-            x2 = tmp;
-            tmp = y1;
-            y1 = y2;
-            y2 = tmp;
+            tmp_fpl = x1_fpl;
+            x1_fpl = x2_fpl;
+            x2_fpl = tmp_fpl;
+            tmp_fpl = y1_fpl;
+            y1_fpl = y2_fpl;
+            y2_fpl = tmp_fpl;
         }
-        if(y1 > y3)
+        if(y1_fpl > y3_fpl)
         {
-            tmp = x1;
-            x1 = x3;
-            x3 = tmp;
-            tmp = y1;
-            y1 = y3;
-            y3 = tmp;
+            tmp_fpl = x1_fpl;
+            x1_fpl = x3_fpl;
+            x3_fpl = tmp_fpl;
+            tmp_fpl = y1_fpl;
+            y1_fpl = y3_fpl;
+            y3_fpl = tmp_fpl;
         }
-        if(y2 > y3)
+        if(y2_fpl > y3_fpl)
         {
-            tmp = x2;
-            x2 = x3;
-            x3 = tmp;
-            tmp = y2;
-            y2 = y3;
-            y3 = tmp;
+            tmp_fpl = x2_fpl;
+            x2_fpl = x3_fpl;
+            x3_fpl = tmp_fpl;
+            tmp_fpl = y2_fpl;
+            y2_fpl = y3_fpl;
+            y3_fpl = tmp_fpl;
         }
-        int starty = (int)Math.floor(y1);
+        if(y1_fpl == y3_fpl)
+            return;
+        int starty = (int)(y1_fpl>>16);
         if(starty < 0)
             starty = 0;
-        int endy = (int)Math.ceil(y3);
+        int endy = (int)((y3_fpl+65535)>>16);
         if(endy >= 480)
             endy = 479;
-        if(y1 == y3)
-            return;
-        double xa_prev = 0. / 0;
-        double xb_prev = 0. / 0;
         for(int y = starty; y <= endy; y++)
         {
-            double xa = x1 + (x3 - x1) * (y - y1) / (y3 - y1);
-            double xb;
-            if(y < y2)
-                xb = x1 + (x2 - x1) * (y - y1) / (y2 - y1);
-            else
-                xb = x2 + (x3 - x2) * (y - y2) / (y3 - y2);
-            if(y < y1)
-                xa = xb = x1;
-            else if(y > y3)
-                xa = xb = x3;
-            if(xb * 0 != 0)
-                xb = x2;
-            if(xb < xa)
+            long xa_fpl = x1_fpl + (long)(((x3_fpl - x1_fpl) * (double)((y<<16) - y1_fpl)) / (y3_fpl - y1_fpl));
+            long xb_fpl;
+            if((y<<16) < y2_fpl)
             {
-                tmp = xb;
-                xb = xa;
-                xa = tmp;
+                if(y2_fpl == y1_fpl)
+                    xb_fpl = x2_fpl;
+                else
+                    xb_fpl = x1_fpl + (long)(((x2_fpl - x1_fpl) * (double)((y<<16) - y1_fpl)) / (y2_fpl - y1_fpl));
             }
-            if(xa < 0)
-                xa = 0;
-            if(xb > 639)
-                xb = 639;
-            if(xa > xb)
+            else
+            {
+                if(y3_fpl == y2_fpl)
+                    xb_fpl = x2_fpl;
+                else
+                    xb_fpl = x2_fpl + (long)(((x3_fpl - x2_fpl) * (double)((y<<16) - y2_fpl)) / (y3_fpl - y2_fpl));
+            }
+            if((y<<16) < y1_fpl)
+                xa_fpl = xb_fpl = x1_fpl;
+            else if((y<<16) > y3_fpl)
+                xa_fpl = xb_fpl = x3_fpl;
+            if(xb_fpl < xa_fpl)
+            {
+                tmp_fpl = xb_fpl;
+                xb_fpl = xa_fpl;
+                xa_fpl = tmp_fpl;
+            }
+            if(xa_fpl < 0)
+                xa_fpl = 0;
+            if(xb_fpl > 639*65535)
+                xb_fpl = 639*65535;
+            if(xa_fpl > xb_fpl)
                 continue;
-            xa_prev = xa;
-            xb_prev = xb;
-            int start = 640 * y + (int)Math.floor(xa);
-            int end = 640 * y + (int)Math.ceil(xb) + 1;
+            int start = 640 * y + (int)(xa_fpl>>16);
+            int end = 640 * y + (int)((xb_fpl+65535)>>16);
             int i = start;
             while(i < end)
             {
@@ -705,7 +724,17 @@ public class GameMain
         if(key == 40)
             vel_pitch--;
         if((key == 27 || key == 19 || key == 415) && pointed_to >= 0)
+        {
             world[pointed_to&0x1fffff] = 0; // remove block
+            int xz = (pointed_to&0x1fffff)>>7;
+            int y = pointed_to&127;
+            if(y == maxHeight[xz])
+            {
+                while(y > 0 && world[128*xz+y] == 0)
+                    y--;
+                maxHeight[xz] = (byte)y;
+            }
+        }
         if((key == 112 || key == 461) && pointed_to >= 0 && world[pointed_to&0x1fffff] != 0)
         {
             int side = pointed_to >> 21;
@@ -728,7 +757,11 @@ public class GameMain
                 if(playerX < x - 0.3 || playerX > x + 1.3
                 || playerY < y - 0.3 || playerY > y + 2.6
                 || playerZ < z - 0.3 || playerZ > z + 1.3)
+                {
                     world[16384*x+128*z+y] = (byte)129;
+                    if(maxHeight[128*x+z] < y)
+                        maxHeight[128*x+z] = (byte)y;
+                }
         }
     }
     private void onkeyup(int key)
