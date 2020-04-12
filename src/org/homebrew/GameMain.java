@@ -315,7 +315,7 @@ public class GameMain
         boolean skyHit = true;
         for(int xi = (x==0?x:x-1); xi <= x + 1 && xi < 128; xi++)
             for(int zi = (z==0?x:z-1); zi <= z + 1 && zi < 128; zi++)
-                if(y <= maxHeight[128*xi+zi])
+                if(y - 1 <= maxHeight[128*xi+zi])
                     skyHit = false;
         // ycos       0    -ysin
         // -ysin*psin pcos -ycos*psin
@@ -348,6 +348,11 @@ public class GameMain
           & point_out_of_screen(x, y+1, z+1)
           & point_out_of_screen(x+1, y+1, z+1)) != 0) // block is in front of the player but outside of the frame
             return;
+        if(skyHit && y >= py + 2)
+        {
+            dfs_preflight(preflight, world, x, y-1, z, px, py, pz);
+            return;
+        }
         if(x != 127 && x >= px)
             dfs_preflight(preflight, world, x+1, y, z, px, py, pz);
         if(x != 0 && x <= px)
