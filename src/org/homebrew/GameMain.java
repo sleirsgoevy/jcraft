@@ -307,12 +307,58 @@ public class GameMain
             return;
         preflight[idx] = (byte)(preflight[idx] | mask);
         if((world[pos] & 128) != 0) // can't see through solid blocks
+        {
+            if(y > maxHeight[pos>>7])
+                throw new RuntimeException("maxHeight fucked up");
             return;
+        }
+        boolean onGround = y > maxHeight[pos>>7];
+        boolean skyHit = true;
+        for(int xi = (x==0?x:x-1); xi <= x + 1 && xi < 128; xi++)
+            for(int zi = (z==0?x:z-1); zi <= z + 1 && zi < 128; zi++)
+                if(y - 1 <= maxHeight[128*xi+zi])
+                    skyHit = false;
+        // ycos       0    -ysin
+        // -ysin*psin pcos -ycos*psin
+        // ysin*pcos  psin ycos*pcos
+        long c1_fp, c2_fp, c3_fp;
+        c1_fp = (playerYaw_sin_fp*(long)playerPitch_cos_fp)>>16;
+        c2_fp = playerPitch_sin_fp;
+        c3_fp = (playerYaw_cos_fp*(long)playerPitch_cos_fp)>>16;
+        int zz_fp = 0;
+        if(c1_fp > 0)
+            zz_fp += (int)(((((x+1)<<16)-playerX_fp)*c1_fp)>>16);
+        else
+            zz_fp += (int)((((x<<16)-playerX_fp)*c1_fp)>>16);
+        if(c2_fp > 0)
+            zz_fp += (int)(((((onGround?128:y+1)<<16)-playerY_fp)*c2_fp)>>16);
+        else
+            zz_fp += (int)((((y<<16)-playerY_fp)*c2_fp)>>16);
+        if(c3_fp > 0)
+            zz_fp += (int)(((((z+1)<<16)-playerZ_fp)*c3_fp)>>16);
+        else
+            zz_fp += (int)((((z<<16)-playerZ_fp)*c3_fp)>>16);
+        if(zz_fp < 0) // block is fully invisible
+            return;
+        if((point_out_of_screen(x, y, z)
+          & point_out_of_screen(x+1, y, z)
+          & point_out_of_screen(x, (onGround?128:y+1), z)
+          & point_out_of_screen(x+1, (onGround?128:y+1), z)
+          & point_out_of_screen(x, y, z+1)
+          & point_out_of_screen(x+1, y, z+1)
+          & point_out_of_screen(x, (onGround?128:y+1), z+1)
+          & point_out_of_screen(x+1, (onGround?128:y+1), z+1)) != 0) // block is in front of the player but outside of the frame
+            return;
+        if(skyHit)
+        {
+            dfs_preflight(preflight, world, x, y-1, z, px, py, pz);
+            return;
+        }
         if(x != 127 && x >= px)
             dfs_preflight(preflight, world, x+1, y, z, px, py, pz);
         if(x != 0 && x <= px)
             dfs_preflight(preflight, world, x-1, y, z, px, py, pz);
-        if(y != 127 && y >= py)
+        if(y != 127 && (y >= py || onGround) && !skyHit)
             dfs_preflight(preflight, world, x, y+1, z, px, py, pz);
         if(y != 0 && y <= py)
             dfs_preflight(preflight, world, x, y-1, z, px, py, pz);
@@ -346,6 +392,8 @@ public class GameMain
             mask |= 4;
         if(y_fpl > 480*65536)
             mask |= 8;
+        if(z_fp < 0)
+            mask = (mask&5)<<1|(mask&10)>>1;
         return mask;
     }
     private void render_block(int[] buffer, int x, int y, int z)
@@ -359,18 +407,17 @@ public class GameMain
         if(block == 0)
             return; //air
         boolean outline = false;//(x-playerX)*(x-playerX)+(y-playerY)*(y-playerY)+(z-playerZ)*(z-playerZ)<=625;
-        // byte is signed, so >=0 means <128
-        if(playerY < y && world[pos-1] >= 0)
+        if(playerY < y && world[pos-1] < 128)
             render_plane(buffer, x, y, z, x+1, y, z, x+1, y, z+1, x, y, z+1, 0xb3000000|pos, outline);
-        if(playerY > y+1 && world[pos+1] >= 0)
+        if(playerY > y+1 && world[pos+1] < 128)
             render_plane(buffer, x, y+1, z, x+1, y+1, z, x+1, y+1, z+1, x, y+1, z+1, 0xb3200000|pos, outline);
-        if(playerX < x && world[pos-16384] >= 0)
+        if(playerX < x && world[pos-16384] < 128)
             render_plane(buffer, x, y, z, x, y+1, z, x, y+1, z+1, x, y, z+1, 0xb3400000|pos, outline);
-        if(playerX > x+1 && world[pos+16384] >= 0)
+        if(playerX > x+1 && world[pos+16384] < 128)
             render_plane(buffer, x+1, y, z, x+1, y+1, z, x+1, y+1, z+1, x+1, y, z+1, 0xb3600000|pos, outline);
-        if(playerZ < z && world[pos-128] >= 0)
+        if(playerZ < z && world[pos-128] < 128)
             render_plane(buffer, x, y, z, x+1, y, z, x+1, y+1, z, x, y+1, z, 0xb3800000|pos, outline);
-        if(playerZ > z+1 && world[pos+128] >= 0)
+        if(playerZ > z+1 && world[pos+128] < 128)
             render_plane(buffer, x, y, z+1, x+1, y, z+1, x+1, y+1, z+1, x, y+1, z+1, 0xb3a00000|pos, outline);
     }
     private void render_plane(int[] buffer, int x1_fp, int y1_fp, int z1_fp, int x2_fp, int y2_fp, int z2_fp, int x3_fp, int y3_fp, int z3_fp, int x4_fp, int y4_fp, int z4_fp, int color, boolean outline)
