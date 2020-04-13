@@ -315,7 +315,7 @@ public class GameMain
         boolean onGround = y > maxHeight[pos>>7];
         boolean skyHit = true;
         for(int xi = (x==0?x:x-1); xi <= x + 1 && xi < 128; xi++)
-            for(int zi = (z==0?x:z-1); zi <= z + 1 && zi < 128; zi++)
+            for(int zi = (z==0?z:z-1); zi <= z + 1 && zi < 128; zi++)
                 if(y - 1 <= maxHeight[128*xi+zi])
                     skyHit = false;
         // ycos       0    -ysin
@@ -381,6 +381,19 @@ public class GameMain
         z_fp = tmp_fp;
         if(z_fp == 0)
             return 0;
+        if(z_fp < 0)
+        {
+            int mask = 0;
+            if(x_fp < 0)
+                mask |= 1;
+            if(x_fp > 0)
+                mask |= 2;
+            if(y_fp > 0)
+                mask |= 4;
+            if(y_fp < 0)
+                mask |= 8;
+            return mask;
+        }
         long x_fpl = 320*65536 + (x_fp*(250l*65536l)) / z_fp;
         long y_fpl = 240*65536 - (y_fp*(250l*65536l)) / z_fp;
         int mask = 0;
