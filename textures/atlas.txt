@@ -1,1 +1,1 @@
-grass_top grass_side dirt
+grass_top grass_side dirt log_oak log_oak_top leaves_oak

@@ -1,6 +1,6 @@
-import PIL.Image
+import PIL.Image, sys
 
-img = PIL.Image.open('textures/grass_top_0.png').convert('RGB')
+img = PIL.Image.open('textures/'+sys.argv[1]+'_0.png').convert('RGB')
 assert img.size == (16, 16)
 
 for i in range(16):
@@ -8,4 +8,4 @@ for i in range(16):
         r, g, b = img.getpixel((i, j))
         img.putpixel((i, j), (163*r//255, g, 105*r//255))
 
-img.save('textures/grass_top.png')
+img.save('textures/'+sys.argv[1]+'.png')

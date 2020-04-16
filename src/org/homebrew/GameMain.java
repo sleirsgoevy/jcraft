@@ -12,8 +12,8 @@ public class GameMain
     };
     final static int[] block_textures = {
         0, 1, 2 /* grass */,
-        2, 2, 2 /* stub */,
-        2, 2, 2 /* stub */,
+        4, 3, 4 /* stub */,
+        5, 5, 5 /* stub */,
         2, 2, 2 /* dirt */,
     };
     private byte[] world;

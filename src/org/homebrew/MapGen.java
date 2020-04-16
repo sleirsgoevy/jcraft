@@ -5,7 +5,7 @@ import java.util.HashMap;
 
 class MapGen
 {
-    private static final int MAP_VERSION = 1;
+    private static final int MAP_VERSION = 2;
     public static void generate(byte[] world, int seed)
     {
         Random r = new Random(seed);
@@ -58,6 +58,19 @@ class MapGen
                 for(int i = 0; i < h; i++)
                     world[offset+i] = (byte)131; //dirt
                 world[offset+h-1] = (byte)128; //grass
+                if(MAP_VERSION >= 2 && r.nextInt(100) == 0)
+                {
+                    world[offset+h-1] = (byte)131; //dirt
+                    for(int i = h; i < 128 && i < h + 4; i++)
+                        world[offset+i] = (byte)129; //wood
+                    for(int i = h + 3; i < 128 && i < h + 5; i++)
+                        for(int xi = (x>0?x-1:x); xi < 128 && xi <= x + 1; xi++)
+                            for(int zi = (z>0?z-1:z); zi < 128 && zi <= z + 1; zi++)
+                                if(world[16384*xi+128*zi+i] == 0)
+                                    world[16384*xi+128*zi+i] = (byte)130; //leaves
+                    if(h + 5 < 128 && world[offset+h+5] == 0)
+                        world[offset+h+5] = (byte)130; //leaves
+                }
             }
         heightmap = null;
     }

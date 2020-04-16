@@ -19,20 +19,32 @@ src/org/homebrew/TextureAtlas.class: src/org/homebrew/TextureAtlas.java
 src/org/homebrew/TextureAtlas.java: textures/atlas.png textures/gen_java.py
 	python3 textures/gen_java.py > src/org/homebrew/TextureAtlas.java
 
-textures/atlas.png: textures/build_atlas.py textures/grass_top.png textures/grass_side.png textures/dirt.png
+textures/atlas.png: textures/build_atlas.py textures/atlas.txt textures/grass_top.png textures/grass_side.png textures/dirt.png textures/log_oak.png textures/log_oak_top.png textures/leaves_oak.png
 	python3 textures/build_atlas.py
 
 textures/grass_top.png: textures/build_grass_top.py textures/grass_top_0.png
-	python3 textures/build_grass_top.py
+	python3 textures/build_grass_top.py grass_top
 
 textures/grass_top_0.png: minecraft.jar
 	unzip -p minecraft.jar assets/minecraft/textures/blocks/grass_top.png > textures/grass_top_0.png
+
+textures/leaves_oak.png: textures/build_grass_top.py textures/leaves_oak_0.png
+	python3 textures/build_grass_top.py leaves_oak
+
+textures/leaves_oak_0.png: minecraft.jar
+	unzip -p minecraft.jar assets/minecraft/textures/blocks/leaves_oak.png > textures/leaves_oak_0.png
 
 textures/grass_side.png: minecraft.jar
 	unzip -p minecraft.jar assets/minecraft/textures/blocks/grass_side.png > textures/grass_side.png
 
 textures/dirt.png: minecraft.jar
 	unzip -p minecraft.jar assets/minecraft/textures/blocks/dirt.png > textures/dirt.png
+
+textures/log_oak.png: minecraft.jar
+	unzip -p minecraft.jar assets/minecraft/textures/blocks/log_oak.png > textures/log_oak.png
+
+textures/log_oak_top.png: minecraft.jar
+	unzip -p minecraft.jar assets/minecraft/textures/blocks/log_oak_top.png > textures/log_oak_top.png
 
 minecraft.jar:
 	echo "Put minecraft.jar here to extract the textures!"
