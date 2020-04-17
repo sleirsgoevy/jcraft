@@ -42,6 +42,8 @@ public class GameMain
     private int vel_z;
     private int vel_yaw;
     private int vel_pitch;
+    private int deltaX;
+    private int deltaY;
     private long prev_time;
     private int[] texture_atlas;
     private int pointed_to;
@@ -198,6 +200,18 @@ public class GameMain
                     ty_i = 15 - ty_i;
                 buffer[i] = texture_atlas[tex_start+256*ty_i+tx_i];
             }
+        for(int i = 0; i < 6; i++)
+        {
+            // invert colors
+            buffer[640*239+320+i] ^= 0xffffff;
+            buffer[640*240+320+i] ^= 0xffffff;
+            buffer[640*239+319-i] ^= 0xffffff;
+            buffer[640*240+319-i] ^= 0xffffff;
+            buffer[640*(240+i)+320] ^= 0xffffff;
+            buffer[640*(240+i)+319] ^= 0xffffff;
+            buffer[640*(239-i)+320] ^= 0xffffff;
+            buffer[640*(239-i)+319] ^= 0xffffff;
+        }
         playerPhysics();
     }
     private void playerPhysics()
@@ -208,14 +222,16 @@ public class GameMain
             double playerX_prev = playerX;
             double playerY_prev = playerY;
             double playerZ_prev = playerZ;
-            playerYaw += vel_yaw / 250.0;
+            playerYaw += vel_yaw / 250.0 + deltaX / 250.0;
+            deltaX = 0;
             if(playerYaw > 2*Math.PI)
                 playerYaw -= 2*Math.PI;
             else if(playerYaw < 0)
                 playerYaw += 2*Math.PI;
             playerYaw_cos = Math.cos(playerYaw);
             playerYaw_sin = Math.sin(playerYaw);
-            playerPitch += vel_pitch / 250.0;
+            playerPitch += vel_pitch / 250.0 - deltaY / 250.0;
+            deltaY = 0;
             if(playerPitch > Math.PI/2)
                 playerPitch = Math.PI/2;
             else if(playerPitch < -Math.PI/2)
@@ -744,7 +760,7 @@ public class GameMain
             vel_yaw++;
         if(key == 40)
             vel_pitch--;
-        if((key == 27 || key == 19 || key == 415) && pointed_to >= 0)
+        if((key == 27 || key == 19 || key == 415 || key == 1001) && pointed_to >= 0)
         {
             world[pointed_to&0x1fffff] = 0; // remove block
             int xz = (pointed_to&0x1fffff)>>7;
@@ -756,7 +772,7 @@ public class GameMain
                 maxHeight[xz] = (byte)y;
             }
         }
-        if((key == 112 || key == 461) && pointed_to >= 0 && world[pointed_to&0x1fffff] != 0)
+        if((key == 112 || key == 461 || key == 1003) && pointed_to >= 0 && world[pointed_to&0x1fffff] != 0)
         {
             int side = pointed_to >> 21;
             int x = (pointed_to >> 14) & 127;
@@ -775,9 +791,9 @@ public class GameMain
             else
                 z++;
             if(x >= 0 && x < 128 && y >= 0 && y < 128 && z >= 0 && z < 128 && world[16384*x+128*z+y] == 0)
-                if(playerX < x - 0.3 || playerX > x + 1.3
-                || playerY < y - 0.3 || playerY > y + 2.6
-                || playerZ < z - 0.3 || playerZ > z + 1.3)
+                if(playerX <= x - 0.3 || playerX >= x + 1.3
+                || playerY <= y - 0.3 || playerY >= y + 2.6
+                || playerZ <= z - 0.3 || playerZ >= z + 1.3)
                 {
                     world[16384*x+128*z+y] = (byte)129;
                     if(maxHeight[128*x+z] < y)
@@ -823,5 +839,21 @@ public class GameMain
                 onkeyup(-key);
             keyStates[-key] = false;
         }
+    }
+    public void mouseMove(int dx, int dy)
+    {
+        deltaX += dx;
+        deltaY += dy;
+    }
+    public void mouseEvent(int button)
+    {
+        if(button > 0)
+            keyEvent(button+1000);
+        else
+            keyEvent(button-1000);
+    }
+    public void mouseWheel(int clicks)
+    {
+        System.out.println("wheel "+clicks);
     }
 }
