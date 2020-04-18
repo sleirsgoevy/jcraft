@@ -47,6 +47,7 @@ public class GameMain
     private long prev_time;
     private int[] texture_atlas;
     private int pointed_to;
+    private Inventory inv;
     public GameMain()
     {
         world = new byte[128*128*128];
@@ -69,6 +70,7 @@ public class GameMain
         prev_time = System.currentTimeMillis();
         texture_atlas = TextureAtlas.atlas;
         pointed_to = -1;
+        inv = new Inventory();
     }
     public void render(int[] buffer)
     {
@@ -200,6 +202,7 @@ public class GameMain
                     ty_i = 15 - ty_i;
                 buffer[i] = texture_atlas[tex_start+256*ty_i+tx_i];
             }
+        // crosshair
         for(int i = 0; i < 6; i++)
         {
             // invert colors
@@ -212,6 +215,7 @@ public class GameMain
             buffer[640*(239-i)+320] ^= 0xffffff;
             buffer[640*(239-i)+319] ^= 0xffffff;
         }
+        inv.renderHotbar(buffer);
         playerPhysics();
     }
     private void playerPhysics()
@@ -790,16 +794,20 @@ public class GameMain
                 z--;
             else
                 z++;
-            if(x >= 0 && x < 128 && y >= 0 && y < 128 && z >= 0 && z < 128 && world[16384*x+128*z+y] == 0)
-                if(playerX <= x - 0.3 || playerX >= x + 1.3
-                || playerY <= y - 0.3 || playerY >= y + 2.6
-                || playerZ <= z - 0.3 || playerZ >= z + 1.3)
-                {
-                    world[16384*x+128*z+y] = (byte)129;
-                    if(maxHeight[128*x+z] < y)
-                        maxHeight[128*x+z] = (byte)y;
-                }
+            int item = inv.getHotbarItem();
+            if(item > 0 && item < 256)
+                if(x >= 0 && x < 128 && y >= 0 && y < 128 && z >= 0 && z < 128 && world[16384*x+128*z+y] == 0)
+                    if(playerX <= x - 0.3 || playerX >= x + 1.3
+                    || playerY <= y - 0.3 || playerY >= y + 2.6
+                    || playerZ <= z - 0.3 || playerZ >= z + 1.3)
+                    {
+                        world[16384*x+128*z+y] = (byte)item;
+                        if(maxHeight[128*x+z] < y)
+                            maxHeight[128*x+z] = (byte)y;
+                    }
         }
+        if(key >= 49 && key <= 57) // digits
+            inv.setHotbarSlot(key - 49);
     }
     private void onkeyup(int key)
     {

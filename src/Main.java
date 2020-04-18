@@ -13,13 +13,22 @@ public class Main extends Frame implements KeyListener, WindowListener, MouseLis
     private int lastMouseX;
     private int lastMouseY;
     private Robot robot;
+    private int offset_left;
+    private int offset_top;
+    private int offset_right;
+    private int offset_bottom;
     public Main() throws Exception
     {
         super();
         game = new GameMain();
         frame = new BufferedImage(640, 480, BufferedImage.TYPE_INT_ARGB);
         robot = new Robot();
-        setSize(640, 480);
+        Insets ins = getInsets();
+        setSize(640+ins.left+ins.right, 480+ins.top+ins.bottom);
+        offset_left = ins.left;
+        offset_top = ins.top;
+        offset_right = ins.right;
+        offset_bottom = ins.bottom;
         resetMouse();
         BufferedImage cursorImg = new BufferedImage(16, 16, BufferedImage.TYPE_INT_ARGB);
         Cursor blankCursor = Toolkit.getDefaultToolkit().createCustomCursor(cursorImg, new Point(0, 0), "blank cursor");
@@ -36,6 +45,15 @@ public class Main extends Frame implements KeyListener, WindowListener, MouseLis
                     {
                         game.render(fb);
                     }
+                    Insets ins = getInsets();
+                    if(ins.left != offset_left || ins.right != offset_right || ins.top != offset_top || ins.bottom != offset_bottom)
+                    {
+                        setSize(640+ins.left+ins.right, 480+ins.top+ins.bottom);
+                        offset_left = ins.left;
+                        offset_top = ins.top;
+                        offset_right = ins.right;
+                        offset_bottom = ins.bottom;
+                    }
                     my_paint(getGraphics());
                 }
             }
@@ -49,7 +67,7 @@ public class Main extends Frame implements KeyListener, WindowListener, MouseLis
     public void my_paint(Graphics g)
     {
         frame.setRGB(0, 0, 640, 480, fb, 0, 640);
-        g.drawImage(frame, 0, 0, 640, 480, 0, 0, 640, 480, null);
+        g.drawImage(frame, offset_left, offset_top, 640+offset_left, 480+offset_top, 0, 0, 640, 480, null);
     }
     public void keyPressed(KeyEvent e)
     {

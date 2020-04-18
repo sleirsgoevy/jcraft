@@ -1,23 +1,36 @@
 JAVAC = javac -source 1.3 -target 1.3 -cp src
+GEN_SRC = src/org/homebrew/TextureAtlas.java src/org/homebrew/FontBundle.java
 
-src.jar: src/Main.class src/org/homebrew/GameMain.class src/org/homebrew/MapGen.class src/org/homebrew/TextureAtlas.class
+src.jar: src/Main.class src/org/homebrew/GameMain.class src/org/homebrew/MapGen.class src/org/homebrew/FontRenderer.class src/org/homebrew/Inventory.class $(GEN_SRC)
 	rm -f src.jar
 	cd src; zip -r ../src.jar .
 
-src/Main.class: src/Main.java src/org/homebrew/TextureAtlas.java
+src/Main.class: src/Main.java $(GEN_SRC)
 	$(JAVAC) src/Main.java
 
-src/org/homebrew/GameMain.class: src/org/homebrew/GameMain.java src/org/homebrew/TextureAtlas.java
+src/org/homebrew/GameMain.class: src/org/homebrew/GameMain.java $(GEN_SRC)
 	$(JAVAC) src/org/homebrew/GameMain.java
 
-src/org/homebrew/MapGen.class: src/org/homebrew/MapGen.java src/org/homebrew/TextureAtlas.java
+src/org/homebrew/MapGen.class: src/org/homebrew/MapGen.java $(GEN_SRC)
 	$(JAVAC) src/org/homebrew/MapGen.java
+
+src/org/homebrew/FontRenderer.class: src/org/homebrew/FontRenderer.java $(GEN_SRC)
+	$(JAVAC) src/org/homebrew/FontRenderer.java
+
+src/org/homebrew/Inventory.class: src/org/homebrew/Inventory.java $(GEN_SRC)
+	$(JAVAC) src/org/homebrew/Inventory.java
 
 src/org/homebrew/TextureAtlas.class: src/org/homebrew/TextureAtlas.java
 	$(JAVAC) src/org/homebrew/TextureAtlas.java
 
 src/org/homebrew/TextureAtlas.java: textures/atlas.png textures/gen_java.py
 	python3 textures/gen_java.py > src/org/homebrew/TextureAtlas.java
+
+src/org/homebrew/FontBundle.class: src/org/homebrew/FontBundle.java
+	$(JAVAC) src/org/homebrew/FontBundle.java
+
+src/org/homebrew/FontBundle.java: dump_font.py bios.bin
+	python3 dump_font.py > src/org/homebrew/FontBundle.java
 
 textures/atlas.png: textures/build_atlas.py textures/atlas.txt textures/grass_top.png textures/grass_side.png textures/dirt.png textures/log_oak.png textures/log_oak_top.png textures/leaves_oak.png
 	python3 textures/build_atlas.py
@@ -51,4 +64,4 @@ minecraft.jar:
 	false
 
 clean:
-	rm -f src.jar src/*.class src/org/homebrew/*.class src/org/homebrew/TextureAtlas.java textures/*.png
+	rm -f src.jar src/*.class src/org/homebrew/*.class $(GEN_SRC) textures/*.png
