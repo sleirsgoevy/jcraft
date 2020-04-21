@@ -649,6 +649,13 @@ public class GameMain
         }
         render3_raw(buffer, dsu, x1_fp, y1_fp, z1_fp, x2_fp, y2_fp, z2_fp, x3_fp, y3_fp, z3_fp, color);
     }
+    /*private static long a_mul_b_div_c(long a, long b, long c)
+    {
+        //return (long)((a*(double)b)/c);
+        if((c >> 12) == 0)
+            return 0;
+        return ((a >> 12) * (b >> 12) / (c >> 12)) << 12;
+    }*/
     private static void render3_raw(int[] buffer, int[] dsu, int x1_fp, int y1_fp, int z1_fp, int x2_fp, int y2_fp, int z2_fp, int x3_fp, int y3_fp, int z3_fp, int color)
     {
         long x1_fpl = 320*65536 + (x1_fp*(250l*65536l)) / z1_fp;
@@ -695,21 +702,27 @@ public class GameMain
             endy = 479;
         for(int y = starty; y <= endy; y++)
         {
-            long xa_fpl = x1_fpl + (long)(((x3_fpl - x1_fpl) * (double)((y<<16) - y1_fpl)) / (y3_fpl - y1_fpl));
+            //long xa_fpl = x1_fpl + (long)(((x3_fpl - x1_fpl) * (double)((y<<16) - y1_fpl)) / (y3_fpl - y1_fpl));
+            //long xa_fpl = x1_fpl + a_mul_b_div_c(x3_fpl - x1_fpl, (y<<16) - y1_fpl, y3_fpl - y1_fpl);
+            long xa_fpl = x1_fpl + (((y3_fpl-y1_fpl)>>12)==0?0:((((x3_fpl - x1_fpl)>>12)*(((y<<16) - y1_fpl)>>12)/((y3_fpl - y1_fpl)>>12))<<12));
             long xb_fpl;
             if((y<<16) < y2_fpl)
             {
                 if(y2_fpl == y1_fpl)
                     xb_fpl = x2_fpl;
                 else
-                    xb_fpl = x1_fpl + (long)(((x2_fpl - x1_fpl) * (double)((y<<16) - y1_fpl)) / (y2_fpl - y1_fpl));
+                    //xb_fpl = x1_fpl + (long)(((x2_fpl - x1_fpl) * (double)((y<<16) - y1_fpl)) / (y2_fpl - y1_fpl));
+                    //xb_fpl = x1_fpl + a_mul_b_div_c(x2_fpl - x1_fpl, (y<<16) - y1_fpl, y2_fpl - y1_fpl);
+                    xb_fpl = x1_fpl + (((y2_fpl-y1_fpl)>>12)==0?0:((((x2_fpl - x1_fpl)>>12)*(((y<<16) - y1_fpl)>>12)/((y2_fpl - y1_fpl)>>12))<<12));
             }
             else
             {
                 if(y3_fpl == y2_fpl)
                     xb_fpl = x2_fpl;
                 else
-                    xb_fpl = x2_fpl + (long)(((x3_fpl - x2_fpl) * (double)((y<<16) - y2_fpl)) / (y3_fpl - y2_fpl));
+                    //xb_fpl = x2_fpl + (long)(((x3_fpl - x2_fpl) * (double)((y<<16) - y2_fpl)) / (y3_fpl - y2_fpl));
+                    //xb_fpl = x2_fpl + a_mul_b_div_c(x3_fpl - x2_fpl, (y<<16) - y2_fpl, y3_fpl - y2_fpl);
+                    xb_fpl = x2_fpl + (((y3_fpl-y2_fpl)>>12)==0?0:((((x3_fpl - x2_fpl)>>12)*(((y<<16) - y2_fpl)>>12)/((y3_fpl - y2_fpl)>>12))<<12));
             }
             if((y<<16) < y1_fpl)
                 xa_fpl = xb_fpl = x1_fpl;
