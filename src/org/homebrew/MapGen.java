@@ -5,9 +5,10 @@ import java.util.HashMap;
 
 class MapGen
 {
-    private static final int MAP_VERSION = 2;
-    public static void generate(byte[] world, int seed)
+    public static final int LATEST_MAP_VERSION = 2;
+    public static void generate(byte[] world, int seed, int map_version)
     {
+        System.out.println("generate("+seed+")");
         Random r = new Random(seed);
         byte[] heightmap = new byte[129*129];
         heightmap[0] = heightmap[128] = heightmap[128*129] = heightmap[128*130] = 64;
@@ -19,7 +20,7 @@ class MapGen
                 {
                     int pos = y*129+x;
                     int cur = (heightmap[pos-130*step] + heightmap[pos-128*step] + heightmap[pos+128*step] + heightmap[pos+130*step]) / 4;
-                    if(MAP_VERSION == 0)
+                    if(map_version == 0)
                         cur += r.nextInt(2*step) - step;
                     else
                         cur += r.nextInt((step*step)/64+1)-(step*step)/128;
@@ -38,7 +39,7 @@ class MapGen
                               +heightmap[((y+step)%129)*129+x]
                               +heightmap[y*129+(x+129-step)%129]
                               +heightmap[y*129+(x+step)%129])/4;
-                    if(MAP_VERSION == 0)
+                    if(map_version == 0)
                         cur += r.nextInt(2*step) - step;
                     else
                         cur += r.nextInt((step*step)/64+1)-(step*step)/128;
@@ -58,7 +59,7 @@ class MapGen
                 for(int i = 0; i < h; i++)
                     world[offset+i] = (byte)131; //dirt
                 world[offset+h-1] = (byte)128; //grass
-                if(MAP_VERSION >= 2 && r.nextInt(100) == 0)
+                if(map_version >= 2 && r.nextInt(100) == 0)
                 {
                     world[offset+h-1] = (byte)131; //dirt
                     for(int i = h; i < 128 && i < h + 4; i++)

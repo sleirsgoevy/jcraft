@@ -12,15 +12,18 @@ public class Main extends Frame implements KeyListener, WindowListener, MouseLis
     private int[] fb = new int[640*480];
     private int lastMouseX;
     private int lastMouseY;
+    private boolean mouseCaptured;
     private Robot robot;
     private int offset_left;
     private int offset_top;
     private int offset_right;
     private int offset_bottom;
+    private Cursor blankCursor;
+    private Cursor oldCursor;
     public Main() throws Exception
     {
         super();
-        game = new GameMain();
+        game = new GameMain("");
         frame = new BufferedImage(640, 480, BufferedImage.TYPE_INT_ARGB);
         robot = new Robot();
         Insets ins = getInsets();
@@ -31,8 +34,8 @@ public class Main extends Frame implements KeyListener, WindowListener, MouseLis
         offset_bottom = ins.bottom;
         resetMouse();
         BufferedImage cursorImg = new BufferedImage(16, 16, BufferedImage.TYPE_INT_ARGB);
-        Cursor blankCursor = Toolkit.getDefaultToolkit().createCustomCursor(cursorImg, new Point(0, 0), "blank cursor");
-        setCursor(blankCursor);
+        blankCursor = Toolkit.getDefaultToolkit().createCustomCursor(cursorImg, new Point(0, 0), "blank cursor");
+        oldCursor = getCursor();
         setLayout(null);
         setVisible(true);
         (new Thread()
@@ -44,6 +47,12 @@ public class Main extends Frame implements KeyListener, WindowListener, MouseLis
                     synchronized(game)
                     {
                         game.render(fb);
+                    }
+                    if(game.doCaptureMouse() != mouseCaptured)
+                    {
+                        mouseCaptured = !mouseCaptured;
+                        setCursor(mouseCaptured?blankCursor:oldCursor);
+                        resetMouse();
                     }
                     Insets ins = getInsets();
                     if(ins.left != offset_left || ins.right != offset_right || ins.top != offset_top || ins.bottom != offset_bottom)
@@ -108,8 +117,24 @@ public class Main extends Frame implements KeyListener, WindowListener, MouseLis
     }
     public synchronized void mouseMoved(MouseEvent e)
     {
+        boolean mc2 = game.doCaptureMouse();
+        if(mc2 != mouseCaptured)
+        {
+            mouseCaptured = mc2;
+            setCursor(mouseCaptured?blankCursor:oldCursor);
+            resetMouse();
+            return;
+        }
         int x = e.getX();
         int y = e.getY();
+        if(!mouseCaptured)
+        {
+            synchronized(game)
+            {
+                game.mouseMove(x-offset_left, y-offset_top);
+            }
+            return;
+        }
         int diffx = x - lastMouseX;
         int diffy = y - lastMouseY;
         lastMouseX = x;
@@ -130,10 +155,12 @@ public class Main extends Frame implements KeyListener, WindowListener, MouseLis
     public void mouseExited(MouseEvent e)
     {
         mouseMoved(e);
-        resetMouse();
+        if(mouseCaptured)
+            resetMouse();
     }
     public void mousePressed(MouseEvent e)
     {
+        mouseMoved(e);
         synchronized(game)
         {
             game.mouseEvent(e.getButton());
@@ -141,6 +168,7 @@ public class Main extends Frame implements KeyListener, WindowListener, MouseLis
     }
     public void mouseReleased(MouseEvent e)
     {
+        mouseMoved(e);
         synchronized(game)
         {
             game.mouseEvent(-e.getButton());

@@ -1,7 +1,7 @@
 JAVAC = javac -source 1.3 -target 1.3 -cp src
 GEN_SRC = src/org/homebrew/TextureAtlas.java src/org/homebrew/FontBundle.java
 
-src.jar: src/Main.class src/org/homebrew/GameMain.class src/org/homebrew/MapGen.class src/org/homebrew/FontRenderer.class src/org/homebrew/Inventory.class $(GEN_SRC)
+src.jar: src/Main.class src/org/homebrew/GameMain.class src/org/homebrew/MapGen.class src/org/homebrew/FontRenderer.class src/org/homebrew/Inventory.class src/org/homebrew/ItemNames.java src/org/homebrew/GUI.class src/org/homebrew/GUIWithButtons.class src/org/homebrew/StartMenu.class src/org/homebrew/PauseMenu.class src/org/homebrew/LevelSave.class $(GEN_SRC)
 	rm -f src.jar
 	cd src; zip -r ../src.jar .
 
@@ -19,6 +19,24 @@ src/org/homebrew/FontRenderer.class: src/org/homebrew/FontRenderer.java $(GEN_SR
 
 src/org/homebrew/Inventory.class: src/org/homebrew/Inventory.java $(GEN_SRC)
 	$(JAVAC) src/org/homebrew/Inventory.java
+
+src/org/homebrew/ItemNames.class: src/org/homebrew/ItemNames.java $(GEN_SRC)
+	$(JAVAC) src/org/homebrew/ItemNames.java
+
+src/org/homebrew/GUI.class: src/org/homebrew/GUI.java $(GEN_SRC)
+	$(JAVAC) src/org/homebrew/GUI.java
+
+src/org/homebrew/GUIWithButtons.class: src/org/homebrew/GUIWithButtons.java $(GEN_SRC)
+	$(JAVAC) src/org/homebrew/GUIWithButtons.java
+
+src/org/homebrew/StartMenu.class: src/org/homebrew/StartMenu.java $(GEN_SRC)
+	$(JAVAC) src/org/homebrew/StartMenu.java
+
+src/org/homebrew/PauseMenu.class: src/org/homebrew/PauseMenu.java $(GEN_SRC)
+	$(JAVAC) src/org/homebrew/PauseMenu.java
+
+src/org/homebrew/LevelSave.class: src/org/homebrew/LevelSave.java $(GEN_SRC)
+	$(JAVAC) src/org/homebrew/LevelSave.java
 
 src/org/homebrew/TextureAtlas.class: src/org/homebrew/TextureAtlas.java
 	$(JAVAC) src/org/homebrew/TextureAtlas.java

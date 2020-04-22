@@ -17,7 +17,10 @@ public class GameMain
         2, 2, 2 /* dirt */,
     };
     private byte[] world;
+    private byte[] world0;
     private byte[] maxHeight;
+    private int[] genParams;
+    private double[] playerMeta;
     private double playerX;
     private int playerX_fp;
     private double playerY;
@@ -48,22 +51,16 @@ public class GameMain
     private int[] texture_atlas;
     private int pointed_to;
     private Inventory inv;
-    public GameMain()
+    private GUI gui;
+    public GameMain(String level_save_path)
     {
+        LevelSave.setLevelSavePath(level_save_path);
         world = new byte[128*128*128];
+        world0 = new byte[128*128*128];
         maxHeight = new byte[128*128];
-        MapGen.generate(world, 179);
-        for(int i = 0; i < 128*128; i++)
-            for(int j = 0; j < 128; j++)
-                if(world[128*i+j] != 0)
-                    maxHeight[i] = (byte)j;
-        playerX = playerZ = 64;
-        playerY = 127;
-        playerYaw = playerYaw_sin = playerPitch_cos = 0;
-        playerPitch = -Math.PI/2;
-        playerYaw_cos = 1;
-        playerPitch_sin = -1;
-        vel_y = vel_x = vel_z = 0;
+        genParams = new int[2];
+        playerMeta = new double[5];
+        genHomeScreen();
         preflight = new byte[(128*128*128)/8];
         dsu = new int[640*480];
         keyStates = new boolean[1024];
@@ -71,6 +68,75 @@ public class GameMain
         texture_atlas = TextureAtlas.atlas;
         pointed_to = -1;
         inv = new Inventory();
+        showGUI(new StartMenu(this));
+    }
+    public void loadFrom(String filename)
+    {
+        LevelSave.loadGame(world, world0, genParams, playerMeta, filename);
+        for(int i = 0; i < 128*128; i++)
+            maxHeight[i] = 0;
+        for(int i = 0; i < 128*128; i++)
+            for(int j = 0; j < 128; j++)
+                if(world[128*i+j] != 0)
+                    maxHeight[i] = (byte)j;
+        playerX = playerMeta[0];
+        playerY = playerMeta[1];
+        playerZ = playerMeta[2];
+        playerYaw = playerMeta[3];
+        playerYaw_cos = Math.cos(playerYaw);
+        playerYaw_sin = Math.sin(playerYaw);
+        playerPitch = playerMeta[4];
+        playerPitch_cos = Math.cos(playerPitch);
+        playerPitch_sin = Math.sin(playerPitch);
+	playerX_fp = (int)(playerX*65536);
+	playerY_fp = (int)(playerY*65536);
+	playerZ_fp = (int)(playerZ*65536);
+	playerPitch_cos_fp = (int)(playerPitch_cos*65536);
+	playerPitch_sin_fp = (int)(playerPitch_sin*65536);
+	playerYaw_cos_fp = (int)(playerYaw_cos*65536);
+	playerYaw_sin_fp = (int)(playerYaw_sin*65536);
+    }
+    public void saveTo(String filename)
+    {
+        playerMeta[0] = playerX;
+        playerMeta[1] = playerY;
+        playerMeta[2] = playerZ;
+        playerMeta[3] = playerYaw;
+        playerMeta[4] = playerPitch;
+        LevelSave.saveGame(world, world0, genParams, playerMeta, filename);
+    }
+    public void genWorld(int seed)
+    {
+        genParams[0] = seed;
+        genParams[1] = MapGen.LATEST_MAP_VERSION;
+        for(int i = 0; i < 128*128*128; i++)
+            world[i] = 0;
+        MapGen.generate(world, seed, MapGen.LATEST_MAP_VERSION);
+        for(int i = 0; i < 128*128*128; i++)
+            world0[i] = world[i];
+        for(int i = 0; i < 128*128; i++)
+            maxHeight[i] = 0;
+        for(int i = 0; i < 128*128; i++)
+            for(int j = 0; j < 128; j++)
+                if(world[128*i+j] != 0)
+                    maxHeight[i] = (byte)j;
+        playerX = playerZ = 64.5;
+        playerY = maxHeight[64*129] + 2.6;
+        playerYaw = playerYaw_sin = playerPitch = playerPitch_sin = 0;
+        playerYaw_cos = playerPitch_cos = 1;
+        vel_y = vel_x = vel_z = 0;
+	playerX_fp = (int)(playerX*65536);
+	playerY_fp = (int)(playerY*65536);
+	playerZ_fp = (int)(playerZ*65536);
+	playerPitch_cos_fp = (int)(playerPitch_cos*65536);
+	playerPitch_sin_fp = (int)(playerPitch_sin*65536);
+	playerYaw_cos_fp = (int)(playerYaw_cos*65536);
+	playerYaw_sin_fp = (int)(playerYaw_sin*65536);
+    }
+    public void genHomeScreen()
+    {
+        System.out.println("genHomeScreen");
+        genWorld(179);
     }
     public void render(int[] buffer)
     {
@@ -202,31 +268,39 @@ public class GameMain
                     ty_i = 15 - ty_i;
                 buffer[i] = texture_atlas[tex_start+256*ty_i+tx_i];
             }
-        // crosshair
-        for(int i = 0; i < 6; i++)
+        if(gui == null)
         {
-            // invert colors
-            buffer[640*239+320+i] ^= 0xffffff;
-            buffer[640*240+320+i] ^= 0xffffff;
-            buffer[640*239+319-i] ^= 0xffffff;
-            buffer[640*240+319-i] ^= 0xffffff;
-            buffer[640*(240+i)+320] ^= 0xffffff;
-            buffer[640*(240+i)+319] ^= 0xffffff;
-            buffer[640*(239-i)+320] ^= 0xffffff;
-            buffer[640*(239-i)+319] ^= 0xffffff;
+            // crosshair
+            for(int i = 0; i < 6; i++)
+            {
+                // invert colors
+                buffer[640*239+320+i] ^= 0xffffff;
+                buffer[640*240+320+i] ^= 0xffffff;
+                buffer[640*239+319-i] ^= 0xffffff;
+                buffer[640*240+319-i] ^= 0xffffff;
+                buffer[640*(240+i)+320] ^= 0xffffff;
+                buffer[640*(240+i)+319] ^= 0xffffff;
+                buffer[640*(239-i)+320] ^= 0xffffff;
+                buffer[640*(239-i)+319] ^= 0xffffff;
+            }
+            inv.renderHotbar(buffer);
         }
-        inv.renderHotbar(buffer);
+        else
+            gui.render(buffer);
         playerPhysics();
     }
     private void playerPhysics()
     {
         long cur_time = System.currentTimeMillis();
+        boolean do_rot = (gui != null && gui.doRotateCamera());
         for(long tick = prev_time; tick < cur_time; tick++)
         {
             double playerX_prev = playerX;
             double playerY_prev = playerY;
             double playerZ_prev = playerZ;
             playerYaw += vel_yaw / 250.0 + deltaX / 250.0;
+            if(do_rot)
+                playerYaw += 0.0003;
             deltaX = 0;
             if(playerYaw > 2*Math.PI)
                 playerYaw -= 2*Math.PI;
@@ -235,6 +309,15 @@ public class GameMain
             playerYaw_cos = Math.cos(playerYaw);
             playerYaw_sin = Math.sin(playerYaw);
             playerPitch += vel_pitch / 250.0 - deltaY / 250.0;
+            if(do_rot)
+            {
+                if(playerPitch > 0.001)
+                    playerPitch -= 0.001;
+                else if(playerPitch < -0.001)
+                    playerPitch += 0.001;
+                else
+                    playerPitch = 0;
+            }
             deltaY = 0;
             if(playerPitch > Math.PI/2)
                 playerPitch = Math.PI/2;
@@ -649,13 +732,6 @@ public class GameMain
         }
         render3_raw(buffer, dsu, x1_fp, y1_fp, z1_fp, x2_fp, y2_fp, z2_fp, x3_fp, y3_fp, z3_fp, color);
     }
-    /*private static long a_mul_b_div_c(long a, long b, long c)
-    {
-        //return (long)((a*(double)b)/c);
-        if((c >> 12) == 0)
-            return 0;
-        return ((a >> 12) * (b >> 12) / (c >> 12)) << 12;
-    }*/
     private static void render3_raw(int[] buffer, int[] dsu, int x1_fp, int y1_fp, int z1_fp, int x2_fp, int y2_fp, int z2_fp, int x3_fp, int y3_fp, int z3_fp, int color)
     {
         long x1_fpl = 320*65536 + (x1_fp*(250l*65536l)) / z1_fp;
@@ -702,8 +778,6 @@ public class GameMain
             endy = 479;
         for(int y = starty; y <= endy; y++)
         {
-            //long xa_fpl = x1_fpl + (long)(((x3_fpl - x1_fpl) * (double)((y<<16) - y1_fpl)) / (y3_fpl - y1_fpl));
-            //long xa_fpl = x1_fpl + a_mul_b_div_c(x3_fpl - x1_fpl, (y<<16) - y1_fpl, y3_fpl - y1_fpl);
             long xa_fpl = x1_fpl + (((y3_fpl-y1_fpl)>>12)==0?0:((((x3_fpl - x1_fpl)>>12)*(((y<<16) - y1_fpl)>>12)/((y3_fpl - y1_fpl)>>12))<<12));
             long xb_fpl;
             if((y<<16) < y2_fpl)
@@ -711,8 +785,6 @@ public class GameMain
                 if(y2_fpl == y1_fpl)
                     xb_fpl = x2_fpl;
                 else
-                    //xb_fpl = x1_fpl + (long)(((x2_fpl - x1_fpl) * (double)((y<<16) - y1_fpl)) / (y2_fpl - y1_fpl));
-                    //xb_fpl = x1_fpl + a_mul_b_div_c(x2_fpl - x1_fpl, (y<<16) - y1_fpl, y2_fpl - y1_fpl);
                     xb_fpl = x1_fpl + (((y2_fpl-y1_fpl)>>12)==0?0:((((x2_fpl - x1_fpl)>>12)*(((y<<16) - y1_fpl)>>12)/((y2_fpl - y1_fpl)>>12))<<12));
             }
             else
@@ -720,8 +792,6 @@ public class GameMain
                 if(y3_fpl == y2_fpl)
                     xb_fpl = x2_fpl;
                 else
-                    //xb_fpl = x2_fpl + (long)(((x3_fpl - x2_fpl) * (double)((y<<16) - y2_fpl)) / (y3_fpl - y2_fpl));
-                    //xb_fpl = x2_fpl + a_mul_b_div_c(x3_fpl - x2_fpl, (y<<16) - y2_fpl, y3_fpl - y2_fpl);
                     xb_fpl = x2_fpl + (((y3_fpl-y2_fpl)>>12)==0?0:((((x3_fpl - x2_fpl)>>12)*(((y<<16) - y2_fpl)>>12)/((y3_fpl - y2_fpl)>>12))<<12));
             }
             if((y<<16) < y1_fpl)
@@ -757,6 +827,11 @@ public class GameMain
     private void onkeydown(int key)
     {
         System.out.println("keydown "+key);
+        if(gui != null)
+        {
+            gui.onkeydown(key);
+            return;
+        }
         if(key == 65 || key == 412)
             vel_x--;
         if(key == 87 || key == 425)
@@ -777,7 +852,9 @@ public class GameMain
             vel_yaw++;
         if(key == 40)
             vel_pitch--;
-        if((key == 27 || key == 19 || key == 415 || key == 1001) && pointed_to >= 0)
+        if(key == 27)
+            showGUI(new PauseMenu(this));
+        if((key == 113 || key == 19 || key == 415 || key == 1001) && pointed_to >= 0)
         {
             world[pointed_to&0x1fffff] = 0; // remove block
             int xz = (pointed_to&0x1fffff)>>7;
@@ -825,6 +902,11 @@ public class GameMain
     private void onkeyup(int key)
     {
         System.out.println("keyup "+key);
+        if(gui != null)
+        {
+            gui.onkeyup(key);
+            return;
+        }
         if(key == 65 || key == 412)
             vel_x++;
         if(key == 87 || key == 425)
@@ -863,6 +945,11 @@ public class GameMain
     }
     public void mouseMove(int dx, int dy)
     {
+        if(gui != null)
+        {
+            gui.mousemove(dx, dy);
+            return;
+        }
         deltaX += dx;
         deltaY += dy;
     }
@@ -876,5 +963,13 @@ public class GameMain
     public void mouseWheel(int clicks)
     {
         System.out.println("wheel "+clicks);
+    }
+    public boolean doCaptureMouse()
+    {
+        return (gui==null?true:gui.doCaptureMouse());
+    }
+    public void showGUI(GUI gui)
+    {
+        this.gui = gui;
     }
 }
