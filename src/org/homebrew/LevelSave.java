@@ -11,7 +11,7 @@ class LevelSave
     }
     private static void writeInt(FileOutputStream fos, int x) throws IOException
     {
-        System.out.println("writeInt "+x);
+        //System.out.println("writeInt "+x);
         for(int i = 0; i < 4; i++)
         {
             fos.write(x & 255);
@@ -23,7 +23,7 @@ class LevelSave
         int ans = 0;
         for(int i = 0; i < 4; i++)
             ans |= fis.read() << (i << 3);
-        System.out.println("readInt "+ans);
+        //System.out.println("readInt "+ans);
         return ans;
     }
     private static void writeDouble(FileOutputStream fos, double d) throws IOException
@@ -45,6 +45,8 @@ class LevelSave
             FileInputStream fis = new FileInputStream(level_save_path+filename);
             int mapSeed = genParams[0] = readInt(fis);
             int mapVersion = genParams[1] = readInt(fis);
+            for(int i = 0; i < 128*128*128; i++)
+                world[i] = 0;
             MapGen.generate(world, mapSeed, mapVersion);
             for(int i = 0; i < 128*128*128; i++)
                 origWorld[i] = world[i];

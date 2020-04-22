@@ -8,7 +8,6 @@ class MapGen
     public static final int LATEST_MAP_VERSION = 2;
     public static void generate(byte[] world, int seed, int map_version)
     {
-        System.out.println("generate("+seed+")");
         Random r = new Random(seed);
         byte[] heightmap = new byte[129*129];
         heightmap[0] = heightmap[128] = heightmap[128*129] = heightmap[128*130] = 64;

@@ -135,7 +135,6 @@ public class GameMain
     }
     public void genHomeScreen()
     {
-        System.out.println("genHomeScreen");
         genWorld(179);
     }
     public void render(int[] buffer)
@@ -832,6 +831,7 @@ public class GameMain
             gui.onkeydown(key);
             return;
         }
+        boolean magic = keyStates[424] && keyStates[425] && keyStates[412] && keyStates[417];
         if(key == 65 || key == 412)
             vel_x--;
         if(key == 87 || key == 425)
@@ -852,9 +852,9 @@ public class GameMain
             vel_yaw++;
         if(key == 40)
             vel_pitch--;
-        if(key == 27)
+        if(key == 27 || ((key == 19 || key == 145) && magic))
             showGUI(new PauseMenu(this));
-        if((key == 113 || key == 19 || key == 415 || key == 1001) && pointed_to >= 0)
+        if((key == 113 || ((key == 19 || key == 415) && !magic) || key == 1001) && pointed_to >= 0)
         {
             world[pointed_to&0x1fffff] = 0; // remove block
             int xz = (pointed_to&0x1fffff)>>7;
