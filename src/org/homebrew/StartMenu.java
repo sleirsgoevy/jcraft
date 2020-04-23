@@ -12,14 +12,8 @@ class StartMenu extends GUIWithButtons
     public void onClick(int btn_id)
     {
         if(btn_id == 0)
-        {
             gm.genWorld((int)(System.currentTimeMillis()/1000));
-            gm.showGUI(null);
-        }
         if(btn_id == 1)
-        {
             gm.loadFrom("jcraft.sav");
-            gm.showGUI(null);
-        }
     }
 }

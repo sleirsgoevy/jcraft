@@ -3,7 +3,7 @@ package org.homebrew;
 class ItemNames
 {
     private static final String[] names_low = {"Air"};
-    private static final String[] names_high = {"Grass", "Wood", "Leaves", "Dirt"};
+    private static final String[] names_high = {"Grass", "Wood", "Leaves", "Dirt", "Stone"};
     public static String getName(int i)
     {
         if(i >= 128)

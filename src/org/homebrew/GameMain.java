@@ -12,9 +12,10 @@ public class GameMain
     };
     final static int[] block_textures = {
         0, 1, 2 /* grass */,
-        4, 3, 4 /* stub */,
-        5, 5, 5 /* stub */,
+        4, 3, 4 /* wood */,
+        5, 5, 5 /* leaves */,
         2, 2, 2 /* dirt */,
+        6, 6, 6 /* stone*/,
     };
     private byte[] world;
     private byte[] world0;
@@ -70,31 +71,43 @@ public class GameMain
         inv = new Inventory();
         showGUI(new StartMenu(this));
     }
-    public void loadFrom(String filename)
+    public void loadFrom(final String filename)
     {
-        LevelSave.loadGame(world, world0, genParams, playerMeta, filename);
-        for(int i = 0; i < 128*128; i++)
-            maxHeight[i] = 0;
-        for(int i = 0; i < 128*128; i++)
-            for(int j = 0; j < 128; j++)
-                if(world[128*i+j] != 0)
-                    maxHeight[i] = (byte)j;
-        playerX = playerMeta[0];
-        playerY = playerMeta[1];
-        playerZ = playerMeta[2];
-        playerYaw = playerMeta[3];
-        playerYaw_cos = Math.cos(playerYaw);
-        playerYaw_sin = Math.sin(playerYaw);
-        playerPitch = playerMeta[4];
-        playerPitch_cos = Math.cos(playerPitch);
-        playerPitch_sin = Math.sin(playerPitch);
-	playerX_fp = (int)(playerX*65536);
-	playerY_fp = (int)(playerY*65536);
-	playerZ_fp = (int)(playerZ*65536);
-	playerPitch_cos_fp = (int)(playerPitch_cos*65536);
-	playerPitch_sin_fp = (int)(playerPitch_sin*65536);
-	playerYaw_cos_fp = (int)(playerYaw_cos*65536);
-	playerYaw_sin_fp = (int)(playerYaw_sin*65536);
+        final GameMain self = this;
+        showGUI(new GeneratingGUI());
+        (new Thread()
+        {
+            public void run()
+            {
+                LevelSave.loadGame(world, world0, genParams, playerMeta, filename, (GeneratingGUI)gui);
+                for(int i = 0; i < 128*128; i++)
+                    maxHeight[i] = 0;
+                for(int i = 0; i < 128*128; i++)
+                    for(int j = 0; j < 128; j++)
+                        if(world[128*i+j] != 0)
+                            maxHeight[i] = (byte)j;
+                playerX = playerMeta[0];
+                playerY = playerMeta[1];
+                playerZ = playerMeta[2];
+                playerYaw = playerMeta[3];
+                playerYaw_cos = Math.cos(playerYaw);
+                playerYaw_sin = Math.sin(playerYaw);
+                playerPitch = playerMeta[4];
+                playerPitch_cos = Math.cos(playerPitch);
+                playerPitch_sin = Math.sin(playerPitch);
+                playerX_fp = (int)(playerX*65536);
+                playerY_fp = (int)(playerY*65536);
+                playerZ_fp = (int)(playerZ*65536);
+                playerPitch_cos_fp = (int)(playerPitch_cos*65536);
+                playerPitch_sin_fp = (int)(playerPitch_sin*65536);
+                playerYaw_cos_fp = (int)(playerYaw_cos*65536);
+                playerYaw_sin_fp = (int)(playerYaw_sin*65536);
+                synchronized(self)
+                {
+                    showGUI(null);
+                }
+            }
+        }).start();
     }
     public void saveTo(String filename)
     {
@@ -105,13 +118,29 @@ public class GameMain
         playerMeta[4] = playerPitch;
         LevelSave.saveGame(world, world0, genParams, playerMeta, filename);
     }
-    public void genWorld(int seed)
+    public void genWorld(final int seed)
+    {
+        final GameMain self = this;
+        showGUI(new GeneratingGUI());
+        (new Thread()
+        {
+            public void run()
+            {
+                genWorld(seed, false);
+                synchronized(self)
+                {
+                    showGUI(null);
+                }
+            }
+        }).start();
+    }
+    private void genWorld(int seed, boolean lite)
     {
         genParams[0] = seed;
         genParams[1] = MapGen.LATEST_MAP_VERSION;
         for(int i = 0; i < 128*128*128; i++)
             world[i] = 0;
-        MapGen.generate(world, seed, MapGen.LATEST_MAP_VERSION);
+        MapGen.generate(world, world0, seed, MapGen.LATEST_MAP_VERSION, lite, lite?null:(GeneratingGUI)this.gui);
         for(int i = 0; i < 128*128*128; i++)
             world0[i] = world[i];
         for(int i = 0; i < 128*128; i++)
@@ -135,138 +164,144 @@ public class GameMain
     }
     public void genHomeScreen()
     {
-        genWorld(179);
+        genWorld(179, true);
     }
     public void render(int[] buffer)
     {
-        for(int i = 0; i < preflight.length; i++)
-            preflight[i] = 0;
-        int px = (int)playerX;
-        int py = (int)playerY;
-        int pz = (int)playerZ;
-        dfs_preflight(preflight, world, px, py, pz, px, py, pz);
-        for(int i = 0; i < 640*480; i++)
-            buffer[i] = 0;
-        for(int i = 0; i < 640*480; i++)
-            dsu[i] = i + 1;
-        for(int i = px; i >= 0; i--)
+        if(gui == null || !gui.doStopEngine())
         {
-            for(int j = py; j >= 0; j--)
+            for(int i = 0; i < preflight.length; i++)
+                preflight[i] = 0;
+            int px = (int)playerX;
+            int py = (int)playerY;
+            int pz = (int)playerZ;
+            dfs_preflight(preflight, world, px, py, pz, px, py, pz);
+            for(int i = 0; i < 640*480; i++)
+                buffer[i] = 0;
+            for(int i = 0; i < 640*480; i++)
+                dsu[i] = i + 1;
+            for(int i = px; i >= 0; i--)
             {
-                for(int k = pz; k >= 0; k--)
-                    render_block(buffer, i, j, k);
-                for(int k = pz + 1; k < 128; k++)
-                    render_block(buffer, i, j, k);
-            }
-            for(int j = py + 1; j < 128; j++)
-            {
-                for(int k = pz; k >= 0; k--)
-                    render_block(buffer, i, j, k);
-                for(int k = pz + 1; k < 128; k++)
-                    render_block(buffer, i, j, k);
-            }
-        }
-        for(int i = px + 1; i < 128; i++)
-        {
-            for(int j = py; j >= 0; j--)
-            {
-                for(int k = pz; k >= 0; k--)
-                    render_block(buffer, i, j, k);
-                for(int k = pz + 1; k < 128; k++)
-                    render_block(buffer, i, j, k);
-            }
-            for(int j = py + 1; j < 128; j++)
-            {
-                for(int k = pz; k >= 0; k--)
-                    render_block(buffer, i, j, k);
-                for(int k = pz + 1; k < 128; k++)
-                    render_block(buffer, i, j, k);
-            }
-        }
-        int prev_pos = -1;
-        int prev_side = -1;
-        int tex_start = -1;
-        if((buffer[640*240+320] & 0xff000000) == 0xb3000000)
-            pointed_to = buffer[640*240+320] & 0x00ffffff;
-        else
-            pointed_to = -1;
-        for(int i = 0; i < 640*480; i++)
-            if(buffer[i] == 0)
-                buffer[i] = -1;
-            else if((buffer[i] & 0xff000000) == 0xb3000000)
-            {
-                int side = (buffer[i] & 0xe00000) >> 21;
-                int pos = buffer[i] & 0x1fffff;
-                if(pos != prev_pos || side != prev_side)
+                for(int j = py; j >= 0; j--)
                 {
-                    prev_pos = pos;
-                    prev_side = side;
-                    int side2 = side;
-                    if(side2 == 0)
-                        side2 = 2;
-                    else if(side2 == 1)
-                        side2 = 0;
+                    for(int k = pz; k >= 0; k--)
+                        render_block(buffer, i, j, k);
+                    for(int k = pz + 1; k < 128; k++)
+                        render_block(buffer, i, j, k);
+                }
+                for(int j = py + 1; j < 128; j++)
+                {
+                    for(int k = pz; k >= 0; k--)
+                        render_block(buffer, i, j, k);
+                    for(int k = pz + 1; k < 128; k++)
+                        render_block(buffer, i, j, k);
+                }
+            }
+            for(int i = px + 1; i < 128; i++)
+            {
+                for(int j = py; j >= 0; j--)
+                {
+                    for(int k = pz; k >= 0; k--)
+                        render_block(buffer, i, j, k);
+                    for(int k = pz + 1; k < 128; k++)
+                        render_block(buffer, i, j, k);
+                }
+                for(int j = py + 1; j < 128; j++)
+                {
+                    for(int k = pz; k >= 0; k--)
+                        render_block(buffer, i, j, k);
+                    for(int k = pz + 1; k < 128; k++)
+                        render_block(buffer, i, j, k);
+                }
+            }
+            int prev_pos = -1;
+            int prev_side = -1;
+            int tex_start = -1;
+            if((buffer[640*240+320] & 0xff000000) == 0xb3000000)
+                pointed_to = buffer[640*240+320] & 0x00ffffff;
+            else
+                pointed_to = -1;
+            for(int i = 0; i < 640*480; i++)
+                if(buffer[i] == 0)
+                    buffer[i] = -1;
+                else if((buffer[i] & 0xff000000) == 0xb3000000)
+                {
+                    int side = (buffer[i] & 0xe00000) >> 21;
+                    int pos = buffer[i] & 0x1fffff;
+                    if(pos != prev_pos || side != prev_side)
+                    {
+                        prev_pos = pos;
+                        prev_side = side;
+                        int side2 = side;
+                        if(side2 == 0)
+                            side2 = 2;
+                        else if(side2 == 1)
+                            side2 = 0;
+                        else
+                            side2 = 1;
+                        int tex_id = block_textures[3*((255&(int)world[pos])-128)+side2];
+                        tex_start = 4096*(tex_id/16)+16*(tex_id%16);
+                    }
+                    int bx_fp = ((pos >> 14) << 16) - playerX_fp;
+                    int bz_fp = (((pos >> 7) & 127) << 16) - playerZ_fp;
+                    int by_fp = ((pos & 127) << 16) - playerY_fp;
+                    int vx_fp = ((i%640-320) << 16)/250;
+                    int vy_fp = ((240-i/640) << 16)/250;
+                    int vz_fp = 65536;
+                    int tmp_fp;
+                    tmp_fp = (int)((vz_fp * (long)playerPitch_cos_fp - vy_fp * (long)playerPitch_sin_fp)>>16);
+                    vy_fp = (int)((vy_fp * (long)playerPitch_cos_fp + vz_fp * (long)playerPitch_sin_fp)>>16);
+                    vz_fp = tmp_fp;
+                    tmp_fp = (int)((vx_fp * (long)playerYaw_cos_fp + vz_fp * (long)playerYaw_sin_fp)>>16);
+                    vz_fp = (int)((vz_fp * (long)playerYaw_cos_fp - vx_fp * (long)playerYaw_sin_fp)>>16);
+                    vx_fp = tmp_fp;
+                    if(side < 2) // y=c
+                    {
+                        tmp_fp = by_fp;
+                        by_fp = bz_fp;
+                        bz_fp = tmp_fp;
+                        tmp_fp = vy_fp;
+                        vy_fp = vz_fp;
+                        vz_fp = tmp_fp;
+                    }
+                    else if(side < 4) // x=c
+                    {
+                        tmp_fp = bx_fp;
+                        bx_fp = bz_fp;
+                        bz_fp = tmp_fp;
+                        tmp_fp = vx_fp;
+                        vx_fp = vz_fp;
+                        vz_fp = tmp_fp;
+                    }
+                    if(side % 2 == 1)
+                        bz_fp += 65536;
+                    long tx_fp, ty_fp;
+                    if(vz_fp == 0) // wtf??
+                        tx_fp = ty_fp = -1;
                     else
-                        side2 = 1;
-                    int tex_id = block_textures[3*((255&(int)world[pos])-128)+side2];
-                    tex_start = 4096*(tex_id/16)+16*(tex_id%16);
+                    {
+                        long coef_fp = (((long)bz_fp)<<16)/vz_fp;
+                        tx_fp = ((vx_fp*coef_fp)>>16)-bx_fp;
+                        ty_fp = ((vy_fp*coef_fp)>>16)-by_fp;
+                    }
+                    if(tx_fp < 0)
+                        tx_fp = 0;
+                    if(tx_fp >= 65536)
+                        tx_fp = 65535;
+                    if(ty_fp < 0)
+                        ty_fp = 0;
+                    if(ty_fp >= 65536)
+                        ty_fp = 65535;
+                    int tx_i = (int)(tx_fp>>12);
+                    int ty_i = (int)(ty_fp>>12);
+                    if(side >= 2)
+                        ty_i = 15 - ty_i;
+                    buffer[i] = texture_atlas[tex_start+256*ty_i+tx_i];
                 }
-                int bx_fp = ((pos >> 14) << 16) - playerX_fp;
-                int bz_fp = (((pos >> 7) & 127) << 16) - playerZ_fp;
-                int by_fp = ((pos & 127) << 16) - playerY_fp;
-                int vx_fp = ((i%640-320) << 16)/250;
-                int vy_fp = ((240-i/640) << 16)/250;
-                int vz_fp = 65536;
-                int tmp_fp;
-                tmp_fp = (int)((vz_fp * (long)playerPitch_cos_fp - vy_fp * (long)playerPitch_sin_fp)>>16);
-                vy_fp = (int)((vy_fp * (long)playerPitch_cos_fp + vz_fp * (long)playerPitch_sin_fp)>>16);
-                vz_fp = tmp_fp;
-                tmp_fp = (int)((vx_fp * (long)playerYaw_cos_fp + vz_fp * (long)playerYaw_sin_fp)>>16);
-                vz_fp = (int)((vz_fp * (long)playerYaw_cos_fp - vx_fp * (long)playerYaw_sin_fp)>>16);
-                vx_fp = tmp_fp;
-                if(side < 2) // y=c
-                {
-                    tmp_fp = by_fp;
-                    by_fp = bz_fp;
-                    bz_fp = tmp_fp;
-                    tmp_fp = vy_fp;
-                    vy_fp = vz_fp;
-                    vz_fp = tmp_fp;
-                }
-                else if(side < 4) // x=c
-                {
-                    tmp_fp = bx_fp;
-                    bx_fp = bz_fp;
-                    bz_fp = tmp_fp;
-                    tmp_fp = vx_fp;
-                    vx_fp = vz_fp;
-                    vz_fp = tmp_fp;
-                }
-                if(side % 2 == 1)
-                    bz_fp += 65536;
-                long tx_fp, ty_fp;
-                if(vz_fp == 0) // wtf??
-                    tx_fp = ty_fp = -1;
-                else
-                {
-                    long coef_fp = (((long)bz_fp)<<16)/vz_fp;
-                    tx_fp = ((vx_fp*coef_fp)>>16)-bx_fp;
-                    ty_fp = ((vy_fp*coef_fp)>>16)-by_fp;
-                }
-                if(tx_fp < 0)
-                    tx_fp = 0;
-                if(tx_fp >= 65536)
-                    tx_fp = 65535;
-                if(ty_fp < 0)
-                    ty_fp = 0;
-                if(ty_fp >= 65536)
-                    ty_fp = 65535;
-                int tx_i = (int)(tx_fp>>12);
-                int ty_i = (int)(ty_fp>>12);
-                if(side >= 2)
-                    ty_i = 15 - ty_i;
-                buffer[i] = texture_atlas[tex_start+256*ty_i+tx_i];
-            }
+            playerPhysics();
+        }
+        else
+            prev_time = System.currentTimeMillis(); // otherwise it would be treated as a lag
         if(gui == null)
         {
             // crosshair
@@ -286,7 +321,6 @@ public class GameMain
         }
         else
             gui.render(buffer);
-        playerPhysics();
     }
     private void playerPhysics()
     {
@@ -378,7 +412,7 @@ public class GameMain
                         {
                             playerY = y + 2.6;
                             vel_y = 0;
-                            if(keyStates[32] || keyStates[10])
+                            if((keyStates[32] || keyStates[10]) && gui == null)
                                 vel_y = 1.5;
                         }
                         else if(prevX_ok && playerX <= x + 0.5 && (x > 0 && world[pos-16384] >= 0))

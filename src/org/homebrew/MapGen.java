@@ -5,7 +5,7 @@ import java.util.HashMap;
 
 class MapGen
 {
-    public static final int LATEST_MAP_VERSION = 3;
+    public static final int LATEST_MAP_VERSION = 4;
     private static void gen_heightmap(double[] heightmap, Random r, int map_version)
     {
         heightmap[0] = heightmap[128] = heightmap[128*129] = heightmap[128*130] = 64;
@@ -78,7 +78,7 @@ class MapGen
             }
         }
     }
-    public static void generate(byte[] world, int seed, int map_version)
+    public static void generate(byte[] world, byte[] world0, int seed, int map_version, boolean lite /* used for start screen */, GeneratingGUI report)
     {
         Random r = new Random(seed);
         byte[] heightmap = new byte[129*129];
@@ -99,14 +99,43 @@ class MapGen
             }
             heightmap_d = null;
         }
+        if(map_version >= 4)
+        {
+            if(!lite) // full gen
+            {
+                Life3d.life3d(r, world, world0, report);
+                for(int i = 0; i < 128*128*128; i++)
+                    world0[i] = world[i]; // back up cave data
+            }
+            else
+            {
+                for(int i = 0; i < 128*128*128; i++)
+                {
+                    world0[i] = 1;
+                    r.nextInt(1); // dry-run the RNG to get the same random numbers later on
+                }
+            }
+        }
+        else
+            for(int i = 0; i < 128*128*128; i++)
+                world0[i] = 1;
+        for(int i = 0; i < 128*128*128; i++)
+            world[i] = 0;
         for(int x = 0; x < 128; x++)
             for(int z = 0; z < 128; z++)
             {
                 int h = heightmap[x*129+z];
                 int offset = 16384*x+128*z;
+                while(h > 0 && world0[offset + h - 1] == 0)
+                    h--;
                 for(int i = 0; i < h; i++)
-                    world[offset+i] = (byte)131; //dirt
-                world[offset+h-1] = (byte)128; //grass
+                    if(world0[offset+i] != 0)
+                        world[offset+i] = (byte)(map_version>=4?132:131); //stone or dirt
+                for(int i = (h>3?h-3:0); i < h; i++)
+                    if(world0[offset+i] != 0)
+                        world[offset+i] = (byte)131; //dirt
+                if(world0[offset+h-1] != 0)
+                    world[offset+h-1] = (byte)128; //grass
                 if(map_version >= 2 && r.nextInt(100) == 0)
                 {
                     world[offset+h-1] = (byte)131; //dirt

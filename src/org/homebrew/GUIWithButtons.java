@@ -119,4 +119,8 @@ public class GUIWithButtons implements GUI
     {
         return false;
     }
+    public boolean doStopEngine()
+    {
+        return false;
+    }
 }

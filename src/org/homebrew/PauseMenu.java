@@ -36,6 +36,10 @@ class PauseMenu extends GUIWithButtons
     {
         return false;
     }
+    public boolean doStopEngine()
+    {
+        return true;
+    }
     public void onkeydown(int key)
     {
         if(key == 27)

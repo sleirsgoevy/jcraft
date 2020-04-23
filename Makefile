@@ -1,7 +1,7 @@
 JAVAC = javac -source 1.3 -target 1.3 -cp src
 GEN_SRC = src/org/homebrew/TextureAtlas.java src/org/homebrew/FontBundle.java
 
-src.jar: src/Main.class src/org/homebrew/GameMain.class src/org/homebrew/MapGen.class src/org/homebrew/FontRenderer.class src/org/homebrew/Inventory.class src/org/homebrew/ItemNames.java src/org/homebrew/GUI.class src/org/homebrew/GUIWithButtons.class src/org/homebrew/StartMenu.class src/org/homebrew/PauseMenu.class src/org/homebrew/LevelSave.class $(GEN_SRC)
+src.jar: src/Main.class src/org/homebrew/GameMain.class src/org/homebrew/MapGen.class src/org/homebrew/Life3d.class src/org/homebrew/FontRenderer.class src/org/homebrew/Inventory.class src/org/homebrew/ItemNames.java src/org/homebrew/GUI.class src/org/homebrew/GUIWithButtons.class src/org/homebrew/StartMenu.class src/org/homebrew/PauseMenu.class src/org/homebrew/GeneratingGUI.class src/org/homebrew/LevelSave.class $(GEN_SRC)
 	rm -f src.jar
 	cd src; zip -r ../src.jar .
 
@@ -13,6 +13,9 @@ src/org/homebrew/GameMain.class: src/org/homebrew/GameMain.java $(GEN_SRC)
 
 src/org/homebrew/MapGen.class: src/org/homebrew/MapGen.java $(GEN_SRC)
 	$(JAVAC) src/org/homebrew/MapGen.java
+
+src/org/homebrew/Life3d.class: src/org/homebrew/Life3d.java $(GEN_SRC)
+	$(JAVAC) src/org/homebrew/Life3d.java
 
 src/org/homebrew/FontRenderer.class: src/org/homebrew/FontRenderer.java $(GEN_SRC)
 	$(JAVAC) src/org/homebrew/FontRenderer.java
@@ -35,6 +38,9 @@ src/org/homebrew/StartMenu.class: src/org/homebrew/StartMenu.java $(GEN_SRC)
 src/org/homebrew/PauseMenu.class: src/org/homebrew/PauseMenu.java $(GEN_SRC)
 	$(JAVAC) src/org/homebrew/PauseMenu.java
 
+src/org/homebrew/GeneratingGUI.class: src/org/homebrew/GeneratingGUI.java $(GEN_SRC)
+	$(JAVAC) src/org/homebrew/GeneratingGUI.java
+
 src/org/homebrew/LevelSave.class: src/org/homebrew/LevelSave.java $(GEN_SRC)
 	$(JAVAC) src/org/homebrew/LevelSave.java
 
@@ -50,7 +56,7 @@ src/org/homebrew/FontBundle.class: src/org/homebrew/FontBundle.java
 src/org/homebrew/FontBundle.java: dump_font.py bios.bin
 	python3 dump_font.py > src/org/homebrew/FontBundle.java
 
-textures/atlas.png: textures/build_atlas.py textures/atlas.txt textures/grass_top.png textures/grass_side.png textures/dirt.png textures/log_oak.png textures/log_oak_top.png textures/leaves_oak.png
+textures/atlas.png: textures/build_atlas.py textures/atlas.txt textures/grass_top.png textures/grass_side.png textures/dirt.png textures/log_oak.png textures/log_oak_top.png textures/leaves_oak.png textures/stone.png
 	python3 textures/build_atlas.py
 
 textures/grass_top.png: textures/build_grass_top.py textures/grass_top_0.png
@@ -76,6 +82,9 @@ textures/log_oak.png: minecraft.jar
 
 textures/log_oak_top.png: minecraft.jar
 	unzip -p minecraft.jar assets/minecraft/textures/blocks/log_oak_top.png > textures/log_oak_top.png
+
+textures/stone.png: minecraft.jar
+	unzip -p minecraft.jar assets/minecraft/textures/blocks/stone.png > textures/stone.png
 
 minecraft.jar:
 	echo "Put minecraft.jar here to extract the textures!"

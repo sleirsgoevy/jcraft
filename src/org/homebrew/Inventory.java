@@ -2,7 +2,7 @@ package org.homebrew;
 
 class Inventory
 {
-    private static int[] hotbar = {128, 131, 129, 130, -1, -1, -1, -1, -1};
+    private static int[] hotbar = {128, 131, 129, 130, 132, -1, -1, -1, -1};
     private int hotbarSlot;
     public Inventory()
     {
