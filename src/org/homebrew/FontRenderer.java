@@ -14,6 +14,16 @@ class FontRenderer
         }
         return w;
     }
+    /*
+    for each pixel that is obscured by letters, the formula `color = (color | orMask) ^ xorMask` is applied.
+    * to keep a bit intact, set that bit to 0 0 in orMask and xorMask
+    * to invert a bit, set that bit to 0 1
+    * to set a bit to 1, set that bit to 1 0
+    * to set a bit to 0, set that bit to 1 1
+    examples:
+    * set alpha (high byte) to all ones, invert rgb (low 3 bytes): orMask = 0xff000000, xorMask = 0x00ffffff
+    * set alpha (high byte) to all ones, rgb to all zeros (black): orMask = 0xffffffff, xorMask = 0x00ffffff
+    */
     public static void renderString(int[] buffer, int offset, String s, int orMask, int xorMask)
     {
         for(int i = 0; i < s.length(); i++)
