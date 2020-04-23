@@ -78,7 +78,7 @@ class MapGen
             }
         }
     }
-    public static void generate(byte[] world, byte[] world0, int seed, int map_version, boolean lite /* used for start screen */, GeneratingGUI report)
+    public static void generate(byte[] world, byte[] world0, int[] aux, int seed, int map_version, boolean lite /* used for start screen */, GeneratingGUI report)
     {
         Random r = new Random(seed);
         byte[] heightmap = new byte[129*129];
@@ -103,7 +103,7 @@ class MapGen
         {
             if(!lite) // full gen
             {
-                Life3d.life3d(r, world, world0, report);
+                Life3d.life3d(r, world, world0, aux, report);
                 for(int i = 0; i < 128*128*128; i++)
                     world0[i] = world[i]; // back up cave data
             }

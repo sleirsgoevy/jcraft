@@ -1,7 +1,7 @@
 JAVAC = javac -source 1.3 -target 1.3 -cp src
 GEN_SRC = src/org/homebrew/TextureAtlas.java src/org/homebrew/FontBundle.java
 
-src.jar: src/Main.class src/org/homebrew/GameMain.class src/org/homebrew/MapGen.class src/org/homebrew/Life3d.class src/org/homebrew/FontRenderer.class src/org/homebrew/Inventory.class src/org/homebrew/ItemNames.java src/org/homebrew/GUI.class src/org/homebrew/GUIWithButtons.class src/org/homebrew/StartMenu.class src/org/homebrew/PauseMenu.class src/org/homebrew/GeneratingGUI.class src/org/homebrew/LevelSave.class $(GEN_SRC)
+src.jar: src/Main.class src/org/homebrew/GameMain.class src/org/homebrew/MapGen.class src/org/homebrew/Life3d.class src/org/homebrew/FontRenderer.class src/org/homebrew/Inventory.class src/org/homebrew/ItemNames.class src/org/homebrew/GUI.class src/org/homebrew/GUIWithButtons.class src/org/homebrew/StartMenu.class src/org/homebrew/PauseMenu.class src/org/homebrew/GeneratingGUI.class src/org/homebrew/LevelSave.class $(GEN_SRC)
 	rm -f src.jar
 	cd src; zip -r ../src.jar .
 

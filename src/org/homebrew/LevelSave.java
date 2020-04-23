@@ -38,7 +38,7 @@ class LevelSave
         long high = readInt(fis);
         return Double.longBitsToDouble((high << 32) | (low & 0xffffffffl));
     }
-    public static void loadGame(byte[] world, byte[] origWorld, int[] genParams, double[] playerPos, String filename, GeneratingGUI report)
+    public static void loadGame(byte[] world, byte[] origWorld, int[] aux, int[] genParams, double[] playerPos, String filename, GeneratingGUI report)
     {
         try
         {
@@ -47,7 +47,7 @@ class LevelSave
             int mapVersion = genParams[1] = readInt(fis);
             for(int i = 0; i < 128*128*128; i++)
                 world[i] = 0;
-            MapGen.generate(world, origWorld, mapSeed, mapVersion, false, report);
+            MapGen.generate(world, origWorld, aux, mapSeed, mapVersion, false, report);
             for(int i = 0; i < 128*128*128; i++)
                 origWorld[i] = world[i];
             for(int cur = readInt(fis); cur != -1; cur = readInt(fis))

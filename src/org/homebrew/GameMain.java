@@ -20,6 +20,7 @@ public class GameMain
     private byte[] world;
     private byte[] world0;
     private byte[] maxHeight;
+    private int[] aux;
     private int[] genParams;
     private double[] playerMeta;
     private double playerX;
@@ -59,6 +60,7 @@ public class GameMain
         world = new byte[128*128*128];
         world0 = new byte[128*128*128];
         maxHeight = new byte[128*128];
+        aux = new int[500000];
         genParams = new int[2];
         playerMeta = new double[5];
         genHomeScreen();
@@ -79,7 +81,7 @@ public class GameMain
         {
             public void run()
             {
-                LevelSave.loadGame(world, world0, genParams, playerMeta, filename, (GeneratingGUI)gui);
+                LevelSave.loadGame(world, world0, aux, genParams, playerMeta, filename, (GeneratingGUI)gui);
                 for(int i = 0; i < 128*128; i++)
                     maxHeight[i] = 0;
                 for(int i = 0; i < 128*128; i++)
@@ -140,7 +142,7 @@ public class GameMain
         genParams[1] = MapGen.LATEST_MAP_VERSION;
         for(int i = 0; i < 128*128*128; i++)
             world[i] = 0;
-        MapGen.generate(world, world0, seed, MapGen.LATEST_MAP_VERSION, lite, lite?null:(GeneratingGUI)this.gui);
+        MapGen.generate(world, world0, aux, seed, MapGen.LATEST_MAP_VERSION, lite, lite?null:(GeneratingGUI)this.gui);
         for(int i = 0; i < 128*128*128; i++)
             world0[i] = world[i];
         for(int i = 0; i < 128*128; i++)
