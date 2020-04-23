@@ -5,11 +5,38 @@ import java.util.HashMap;
 
 class MapGen
 {
-    public static final int LATEST_MAP_VERSION = 2;
-    public static void generate(byte[] world, int seed, int map_version)
+    public static final int LATEST_MAP_VERSION = 3;
+    private static void gen_heightmap(double[] heightmap, Random r, int map_version)
     {
-        Random r = new Random(seed);
-        byte[] heightmap = new byte[129*129];
+        heightmap[0] = heightmap[128] = heightmap[128*129] = heightmap[128*130] = 64;
+        for(int step = 64; step != 0; step >>= 1)
+        {
+            //square
+            for(int x = step; x <= 128; x += 2 * step)
+                for(int y = step; y <= 128; y += 2 * step)
+                {
+                    int pos = y*129+x;
+                    double cur = (heightmap[pos-130*step] + heightmap[pos-128*step] + heightmap[pos+128*step] + heightmap[pos+130*step]) / 4;
+                    cur += (step*step)/64*r.nextDouble()-(step*step)/128;
+                    heightmap[pos] = cur;
+                }
+            //diamond
+            for(int y = 0; y <= 128; y += step)
+            {
+                for(int x = (y + step) % (2 * step); x <= 128; x += 2 * step)
+                {
+                    double cur = (heightmap[((y+129-step)%129)*129+x]
+                                 +heightmap[((y+step)%129)*129+x]
+                                 +heightmap[y*129+(x+129-step)%129]
+                                 +heightmap[y*129+(x+step)%129])/4;
+                    cur += (step*step)/64*r.nextDouble()-(step*step)/128;
+                    heightmap[y*129+x] = cur;
+                }
+            }
+        }
+    }
+    private static void gen_heightmap_old(byte[] heightmap, Random r, int map_version)
+    {
         heightmap[0] = heightmap[128] = heightmap[128*129] = heightmap[128*130] = 64;
         for(int step = 64; step != 0; step >>= 1)
         {
@@ -49,6 +76,28 @@ class MapGen
                     heightmap[y*129+x] = (byte)cur;
                 }
             }
+        }
+    }
+    public static void generate(byte[] world, int seed, int map_version)
+    {
+        Random r = new Random(seed);
+        byte[] heightmap = new byte[129*129];
+        if(map_version <= 2)
+            gen_heightmap_old(heightmap, r, map_version);
+        else
+        {
+            double[] heightmap_d = new double[129*129];
+            gen_heightmap(heightmap_d, r, map_version);
+            for(int i = 0; i < 129*129; i++)
+            {
+                double x = heightmap_d[i];
+                if(x < 0)
+                    x = 0;
+                if(x > 127)
+                    x = 127;
+                heightmap[i] = (byte)Math.floor(x);
+            }
+            heightmap_d = null;
         }
         for(int x = 0; x < 128; x++)
             for(int z = 0; z < 128; z++)
