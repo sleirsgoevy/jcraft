@@ -5,7 +5,7 @@ import java.util.HashMap;
 
 class MapGen
 {
-    public static final int LATEST_MAP_VERSION = 4;
+    public static final int LATEST_MAP_VERSION = 5;
     private static void gen_heightmap(double[] heightmap, Random r, int map_version)
     {
         heightmap[0] = heightmap[128] = heightmap[128*129] = heightmap[128*130] = 64;
@@ -150,6 +150,15 @@ class MapGen
                         world[offset+h+5] = (byte)130; //leaves
                 }
             }
+        if(map_version >= 5)
+            for(int x = 0; x < 128; x++)
+                for(int z = 0; z < 128; z++)
+                    for(int y = 0; y < 11; y++)
+                    {
+                        int pos = 16384*x+128*z+y;
+                        if(world[pos] == 0)
+                            world[pos] = (byte)(y==10?126:127);
+                    }
         heightmap = null;
     }
 }

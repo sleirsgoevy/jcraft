@@ -56,7 +56,7 @@ src/org/homebrew/FontBundle.class: src/org/homebrew/FontBundle.java
 src/org/homebrew/FontBundle.java: dump_font.py bios.bin
 	python3 dump_font.py > src/org/homebrew/FontBundle.java
 
-textures/atlas.png: textures/build_atlas.py textures/atlas.txt textures/grass_top.png textures/grass_side.png textures/dirt.png textures/log_oak.png textures/log_oak_top.png textures/leaves_oak.png textures/stone.png
+textures/atlas.png: textures/build_atlas.py textures/atlas.txt textures/grass_top.png textures/grass_side.png textures/dirt.png textures/log_oak.png textures/log_oak_top.png textures/leaves_oak.png textures/stone.png textures/lava_still.png
 	python3 textures/build_atlas.py
 
 textures/grass_top.png: textures/build_grass_top.py textures/grass_top_0.png
@@ -85,6 +85,12 @@ textures/log_oak_top.png: minecraft.jar
 
 textures/stone.png: minecraft.jar
 	unzip -p minecraft.jar assets/minecraft/textures/blocks/stone.png > textures/stone.png
+
+textures/lava_still.png: textures/crop.py textures/lava_still_0.png
+	python3 textures/crop.py lava_still
+
+textures/lava_still_0.png: minecraft.jar
+	unzip -p minecraft.jar assets/minecraft/textures/blocks/lava_still.png > textures/lava_still_0.png
 
 minecraft.jar:
 	echo "Put minecraft.jar here to extract the textures!"

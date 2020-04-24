@@ -4,18 +4,19 @@ import java.util.Random;
 
 public class GameMain
 {
-    final static int[] block_colors = {
-        0xff00ff00, 0xffff8000, 0xffff8000 /* grass */,
-        0xff800000, 0xff800000, 0xff800000 /* wood */,
-        0xff008000, 0xff008000, 0xff008000 /* leaves */,
-        0xffff8000, 0xffff8000, 0xffff8000 /* dirt */,
-    };
     final static int[] block_textures = {
+        7, 7, 7 /* lava */,
+        7, 7, 7 /* lava */,
         0, 1, 2 /* grass */,
         4, 3, 4 /* wood */,
         5, 5, 5 /* leaves */,
-        2, 2, 2 /* dirt */,
-        6, 6, 6 /* stone*/,
+	2, 2, 2 /* dirt */,
+	6, 6, 6 /* stone*/,
+    };
+    final static int[] bboxes = {
+        0, 52429, 0, 65536, 0, 65536, // lava top
+        0, 65536, 0, 65536, 0, 65536, // lava full block
+        0, 65536, 0, 65536, 0, 65536, // default
     };
     private byte[] world;
     private byte[] world0;
@@ -41,6 +42,7 @@ public class GameMain
     private int playerPitch_sin_fp;
     private byte[] preflight;
     private int[] dsu;
+    private int skip;
     private boolean[] keyStates;
     private int vel_x;
     private double vel_y;
@@ -66,6 +68,7 @@ public class GameMain
         genHomeScreen();
         preflight = new byte[(128*128*128)/8];
         dsu = new int[640*480];
+        skip = 256;
         keyStates = new boolean[1024];
         prev_time = System.currentTimeMillis();
         texture_atlas = TextureAtlas.atlas;
@@ -230,6 +233,7 @@ public class GameMain
                 {
                     int side = (buffer[i] & 0xe00000) >> 21;
                     int pos = buffer[i] & 0x1fffff;
+                    int block = (255&(int)world[pos]);
                     if(pos != prev_pos || side != prev_side)
                     {
                         prev_pos = pos;
@@ -241,7 +245,7 @@ public class GameMain
                             side2 = 0;
                         else
                             side2 = 1;
-                        int tex_id = block_textures[3*((255&(int)world[pos])-128)+side2];
+                        int tex_id = block_textures[3*(block-126)+side2];
                         tex_start = 4096*(tex_id/16)+16*(tex_id%16);
                     }
                     int bx_fp = ((pos >> 14) << 16) - playerX_fp;
@@ -275,8 +279,12 @@ public class GameMain
                         vx_fp = vz_fp;
                         vz_fp = tmp_fp;
                     }
-                    if(side % 2 == 1)
-                        bz_fp += 65536;
+                    int bbox_offset;
+                    if(block >= 128)
+                        bbox_offset = 12;
+                    else
+                        bbox_offset = 6 * (block - 126);
+                    bz_fp += bboxes[bbox_offset+side];
                     long tx_fp, ty_fp;
                     if(vz_fp == 0) // wtf??
                         tx_fp = ty_fp = -1;
@@ -435,6 +443,8 @@ public class GameMain
         playerPitch_sin_fp = (int)(playerPitch_sin*65536);
         playerYaw_cos_fp = (int)(playerYaw_cos*65536);
         playerYaw_sin_fp = (int)(playerYaw_sin*65536);
+        if(world[16384*(playerX_fp>>16)+128*(playerZ_fp>>16)+(playerY_fp>>16)] >= 0)
+            skip = (world[16384*(playerX_fp>>16)+128*(playerZ_fp>>16)+(playerY_fp>>16)]&254);
     }
     private void dfs_preflight(byte[] preflight, byte[] world, int x, int y, int z, int px, int py, int pz)
     {
@@ -555,36 +565,46 @@ public class GameMain
         if((preflight[idx] & mask) == 0)
             return;
         int block = 255&(int)world[x*16384+z*128+y];
-        if(block == 0)
+        if(block == 0 || (block ^ skip) < 2)
             return; //air
-        boolean outline = false;//(x-playerX)*(x-playerX)+(y-playerY)*(y-playerY)+(z-playerZ)*(z-playerZ)<=625;
-        if(playerY < y && world[pos-1] < 128)
-            render_plane(buffer, x, y, z, x+1, y, z, x+1, y, z+1, x, y, z+1, 0xb3000000|pos, outline);
-        if(playerY > y+1 && world[pos+1] < 128)
-            render_plane(buffer, x, y+1, z, x+1, y+1, z, x+1, y+1, z+1, x, y+1, z+1, 0xb3200000|pos, outline);
-        if(playerX < x && world[pos-16384] < 128)
-            render_plane(buffer, x, y, z, x, y+1, z, x, y+1, z+1, x, y, z+1, 0xb3400000|pos, outline);
-        if(playerX > x+1 && world[pos+16384] < 128)
-            render_plane(buffer, x+1, y, z, x+1, y+1, z, x+1, y+1, z+1, x+1, y, z+1, 0xb3600000|pos, outline);
-        if(playerZ < z && world[pos-128] < 128)
-            render_plane(buffer, x, y, z, x+1, y, z, x+1, y+1, z, x, y+1, z, 0xb3800000|pos, outline);
-        if(playerZ > z+1 && world[pos+128] < 128)
-            render_plane(buffer, x, y, z+1, x+1, y, z+1, x+1, y+1, z+1, x, y+1, z+1, 0xb3a00000|pos, outline);
+        int bbox_offset;
+        if(block >= 128)
+            bbox_offset = 12;
+        else
+            bbox_offset = 6 * (block - 126);
+        int y0 = (y<<16)+bboxes[bbox_offset];
+        int y1 = (y<<16)+bboxes[bbox_offset+1];
+        int x0 = (x<<16)+bboxes[bbox_offset+2];
+        int x1 = (x<<16)+bboxes[bbox_offset+3];
+        int z0 = (z<<16)+bboxes[bbox_offset+4];
+        int z1 = (z<<16)+bboxes[bbox_offset+5];
+        if(playerY_fp < y0 && (y0 != (y<<16) || world[pos-1] >= 0))
+            render_plane(buffer, x0, y0, z0, x1, y0, z0, x1, y0, z1, x0, y0, z1, 0xb3000000|pos, false);
+        if(playerY_fp > y1 && (y1 != ((y+1)<<16) || world[pos+1] >= 0))
+            render_plane(buffer, x0, y1, z0, x1, y1, z0, x1, y1, z1, x0, y1, z1, 0xb3200000|pos, false);
+        if(playerX_fp < x0 && (x0 != (x<<16) || world[pos-16384] >= 0))
+            render_plane(buffer, x0, y0, z0, x0, y1, z0, x0, y1, z1, x0, y0, z1, 0xb3400000|pos, false);
+        if(playerX_fp > x1 && (x1 != ((x+1)<<16) || world[pos+16384] >= 0))
+            render_plane(buffer, x1, y0, z0, x1, y1, z0, x1, y1, z1, x1, y0, z1, 0xb3600000|pos, false);
+        if(playerZ_fp < z0 && (z0 != (z<<16) || world[pos-128] >= 0))
+            render_plane(buffer, x0, y0, z0, x1, y0, z0, x1, y1, z0, x0, y1, z0, 0xb3800000|pos, false);
+        if(playerZ_fp > z1 && (z1 != ((z+1)<<16) || world[pos+128] >= 0))
+            render_plane(buffer, x0, y0, z1, x1, y0, z1, x1, y1, z1, x0, y1, z1, 0xb3a00000|pos, false);
     }
     private void render_plane(int[] buffer, int x1_fp, int y1_fp, int z1_fp, int x2_fp, int y2_fp, int z2_fp, int x3_fp, int y3_fp, int z3_fp, int x4_fp, int y4_fp, int z4_fp, int color, boolean outline)
     {
-        x1_fp = (x1_fp<<16) - playerX_fp;
-        x2_fp = (x2_fp<<16) - playerX_fp;
-        x3_fp = (x3_fp<<16) - playerX_fp;
-        x4_fp = (x4_fp<<16) - playerX_fp;
-        y1_fp = (y1_fp<<16) - playerY_fp;
-        y2_fp = (y2_fp<<16) - playerY_fp;
-        y3_fp = (y3_fp<<16) - playerY_fp;
-        y4_fp = (y4_fp<<16) - playerY_fp;
-        z1_fp = (z1_fp<<16) - playerZ_fp;
-        z2_fp = (z2_fp<<16) - playerZ_fp;
-        z3_fp = (z3_fp<<16) - playerZ_fp;
-        z4_fp = (z4_fp<<16) - playerZ_fp;
+        x1_fp -= playerX_fp;
+        x2_fp -= playerX_fp;
+        x3_fp -= playerX_fp;
+        x4_fp -= playerX_fp;
+        y1_fp -= playerY_fp;
+        y2_fp -= playerY_fp;
+        y3_fp -= playerY_fp;
+        y4_fp -= playerY_fp;
+        z1_fp -= playerZ_fp;
+        z2_fp -= playerZ_fp;
+        z3_fp -= playerZ_fp;
+        z4_fp -= playerZ_fp;
         int tmp_fp;
         tmp_fp = (int)((x1_fp * (long)playerYaw_cos_fp - z1_fp * (long)playerYaw_sin_fp)>>16);
         z1_fp = (int)((x1_fp * (long)playerYaw_sin_fp + z1_fp * (long)playerYaw_cos_fp)>>16);
