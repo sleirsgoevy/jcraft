@@ -629,24 +629,36 @@ public class GameMain
         int x1 = (x<<16)+bboxes[bbox_offset+3];
         int z0 = (z<<16)+bboxes[bbox_offset+4];
         int z1 = (z<<16)+bboxes[bbox_offset+5];
-        if(playerY_fp < y0 && (y0 != (y<<16) || world[pos-1] >= 0))
-            //render_plane(buffer, x0, y0, z0, x1, y0, z0, x1, y0, z1, x0, y0, z1, 0xb2000000|pos, false);
-            render_plane(buffer, x, y, z, 0, 0xb2000000|pos, false);
-        if(playerY_fp > y1 && (y1 != ((y+1)<<16) || world[pos+1] >= 0))
-            //render_plane(buffer, x0, y1, z0, x1, y1, z0, x1, y1, z1, x0, y1, z1, 0xb2200000|pos, false);
-            render_plane(buffer, x, y, z, 1, 0xb2200000|pos, false);
-        if(playerX_fp < x0 && (x0 != (x<<16) || world[pos-16384] >= 0))
-            //render_plane(buffer, x0, y0, z0, x0, y1, z0, x0, y1, z1, x0, y0, z1, 0xb2400000|pos, false);
-            render_plane(buffer, x, y, z, 2, 0xb2400000|pos, false);
-        if(playerX_fp > x1 && (x1 != ((x+1)<<16) || world[pos+16384] >= 0))
-            //render_plane(buffer, x1, y0, z0, x1, y1, z0, x1, y1, z1, x1, y0, z1, 0xb2600000|pos, false);
-            render_plane(buffer, x, y, z, 3, 0xb2600000|pos, false);
-        if(playerZ_fp < z0 && (z0 != (z<<16) || world[pos-128] >= 0))
-            //render_plane(buffer, x0, y0, z0, x1, y0, z0, x1, y1, z0, x0, y1, z0, 0xb2800000|pos, false);
-            render_plane(buffer, x, y, z, 4, 0xb2800000|pos, false);
-        if(playerZ_fp > z1 && (z1 != ((z+1)<<16) || world[pos+128] >= 0))
-            //render_plane(buffer, x0, y0, z1, x1, y0, z1, x1, y1, z1, x0, y1, z1, 0xb2a00000|pos, false);
-            render_plane(buffer, x, y, z, 5, 0xb2a00000|pos, false);
+        if(block < 128)
+        {
+            if(playerY_fp < y0 && (y0 != (y<<16) || world[pos-1] >= 0))
+                render_plane(buffer, x, y, z, 0, 0xb2000000|pos, false);
+            if(playerY_fp > y1 && (y1 != ((y+1)<<16) || world[pos+1] >= 0))
+                render_plane(buffer, x, y, z, 1, 0xb2200000|pos, false);
+            if(playerX_fp < x0 && (x0 != (x<<16) || world[pos-16384] >= 0))
+                render_plane(buffer, x, y, z, 2, 0xb2400000|pos, false);
+            if(playerX_fp > x1 && (x1 != ((x+1)<<16) || world[pos+16384] >= 0))
+                render_plane(buffer, x, y, z, 3, 0xb2600000|pos, false);
+            if(playerZ_fp < z0 && (z0 != (z<<16) || world[pos-128] >= 0))
+                render_plane(buffer, x, y, z, 4, 0xb2800000|pos, false);
+            if(playerZ_fp > z1 && (z1 != ((z+1)<<16) || world[pos+128] >= 0))
+                render_plane(buffer, x, y, z, 5, 0xb2a00000|pos, false);
+        }
+        else
+        {
+            if(playerY_fp < y0 && (y0 != (y<<16) || world[pos-1] >= 0))
+                render_plane_legacy(buffer, x0, y0, z0, x1, y0, z0, x1, y0, z1, x0, y0, z1, 0xb3000000|pos, false);
+            if(playerY_fp > y1 && (y1 != ((y+1)<<16) || world[pos+1] >= 0))
+                render_plane_legacy(buffer, x0, y1, z0, x1, y1, z0, x1, y1, z1, x0, y1, z1, 0xb3200000|pos, false);
+            if(playerX_fp < x0 && (x0 != (x<<16) || world[pos-16384] >= 0))
+                render_plane_legacy(buffer, x0, y0, z0, x0, y1, z0, x0, y1, z1, x0, y0, z1, 0xb3400000|pos, false);
+            if(playerX_fp > x1 && (x1 != ((x+1)<<16) || world[pos+16384] >= 0))
+                render_plane_legacy(buffer, x1, y0, z0, x1, y1, z0, x1, y1, z1, x1, y0, z1, 0xb3600000|pos, false);
+            if(playerZ_fp < z0 && (z0 != (z<<16) || world[pos-128] >= 0))
+                render_plane_legacy(buffer, x0, y0, z0, x1, y0, z0, x1, y1, z0, x0, y1, z0, 0xb3800000|pos, false);
+            if(playerZ_fp > z1 && (z1 != ((z+1)<<16) || world[pos+128] >= 0))
+                render_plane_legacy(buffer, x0, y0, z1, x1, y0, z1, x1, y1, z1, x0, y1, z1, 0xb3a00000|pos, false);
+        }
     }
     private void get_plane_coords(int x, int y, int z, int side)
     {
@@ -786,6 +798,55 @@ public class GameMain
         }
         render3(buffer, dsu, x1_fp, y1_fp, z1_fp, x2_fp, y2_fp, z2_fp, x3_fp, y3_fp, z3_fp, color);
         render3(buffer, dsu, x1_fp, y1_fp, z1_fp, x4_fp, y4_fp, z4_fp, x3_fp, y3_fp, z3_fp, color | 0x1000000);
+    }
+    private void render_plane_legacy(int[] buffer, int x1_fp, int y1_fp, int z1_fp, int x2_fp, int y2_fp, int z2_fp, int x3_fp, int y3_fp, int z3_fp, int x4_fp, int y4_fp, int z4_fp, int color, boolean outline)
+    {
+        x1_fp -= playerX_fp;
+        x2_fp -= playerX_fp;
+        x3_fp -= playerX_fp;
+        x4_fp -= playerX_fp;
+        y1_fp -= playerY_fp;
+        y2_fp -= playerY_fp;
+        y3_fp -= playerY_fp;
+        y4_fp -= playerY_fp;
+        z1_fp -= playerZ_fp;
+        z2_fp -= playerZ_fp;
+        z3_fp -= playerZ_fp;
+        z4_fp -= playerZ_fp;
+        int tmp_fp;
+        tmp_fp = (int)((x1_fp * (long)playerYaw_cos_fp - z1_fp * (long)playerYaw_sin_fp)>>16);
+        z1_fp = (int)((x1_fp * (long)playerYaw_sin_fp + z1_fp * (long)playerYaw_cos_fp)>>16);
+        x1_fp = tmp_fp;
+        tmp_fp = (int)((z1_fp * (long)playerPitch_cos_fp + y1_fp * (long)playerPitch_sin_fp)>>16);
+        y1_fp = (int)((y1_fp * (long)playerPitch_cos_fp - z1_fp * (long)playerPitch_sin_fp)>>16);
+        z1_fp = tmp_fp;
+        tmp_fp = (int)((x2_fp * (long)playerYaw_cos_fp - z2_fp * (long)playerYaw_sin_fp)>>16);
+        z2_fp = (int)((x2_fp * (long)playerYaw_sin_fp + z2_fp * (long)playerYaw_cos_fp)>>16);
+        x2_fp = tmp_fp;
+        tmp_fp = (int)((z2_fp * (long)playerPitch_cos_fp + y2_fp * (long)playerPitch_sin_fp)>>16);
+        y2_fp = (int)((y2_fp * (long)playerPitch_cos_fp - z2_fp * (long)playerPitch_sin_fp)>>16);
+        z2_fp = tmp_fp;
+        tmp_fp = (int)((x3_fp * (long)playerYaw_cos_fp - z3_fp * (long)playerYaw_sin_fp)>>16);
+        z3_fp = (int)((x3_fp * (long)playerYaw_sin_fp + z3_fp * (long)playerYaw_cos_fp)>>16);
+        x3_fp = tmp_fp;
+        tmp_fp = (int)((z3_fp * (long)playerPitch_cos_fp + y3_fp * (long)playerPitch_sin_fp)>>16);
+        y3_fp = (int)((y3_fp * (long)playerPitch_cos_fp - z3_fp * (long)playerPitch_sin_fp)>>16);
+        z3_fp = tmp_fp;
+        tmp_fp = (int)((x4_fp * (long)playerYaw_cos_fp - z4_fp * (long)playerYaw_sin_fp)>>16);
+        z4_fp = (int)((x4_fp * (long)playerYaw_sin_fp + z4_fp * (long)playerYaw_cos_fp)>>16);
+        x4_fp = tmp_fp;
+        tmp_fp = (int)((z4_fp * (long)playerPitch_cos_fp + y4_fp * (long)playerPitch_sin_fp)>>16);
+        y4_fp = (int)((y4_fp * (long)playerPitch_cos_fp - z4_fp * (long)playerPitch_sin_fp)>>16);
+        z4_fp = tmp_fp;
+        if(outline)
+        {
+            draw_line(buffer, x1_fp, y1_fp, z1_fp, x2_fp, y2_fp, z2_fp);
+            draw_line(buffer, x2_fp, y2_fp, z2_fp, x3_fp, y3_fp, z3_fp);
+            draw_line(buffer, x3_fp, y3_fp, z3_fp, x4_fp, y4_fp, z4_fp);
+            draw_line(buffer, x4_fp, y4_fp, z4_fp, x1_fp, y1_fp, z1_fp);
+        }
+        render3(buffer, dsu, x1_fp, y1_fp, z1_fp, x2_fp, y2_fp, z2_fp, x3_fp, y3_fp, z3_fp, color);
+        render3(buffer, dsu, x1_fp, y1_fp, z1_fp, x4_fp, y4_fp, z4_fp, x3_fp, y3_fp, z3_fp, color);
     }
     private static void draw_line(int[] buffer, int x1_fp, int y1_fp, int z1_fp, int x2_fp, int y2_fp, int z2_fp)
     {
