@@ -28,8 +28,7 @@ public class Main extends Frame implements KeyListener, WindowListener, MouseLis
         }
         catch(NoClassDefFoundError e) // no jinput in classpath
         {
-            throw e;
-            //return new Object[0];
+            return new Object[0];
         }
     }
     public Main() throws Exception
