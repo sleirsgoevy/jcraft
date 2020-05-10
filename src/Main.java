@@ -54,6 +54,21 @@ public class Main extends Frame implements KeyListener, WindowListener, MouseLis
         {
             public void run()
             {
+                String X, Y, RX, RY;
+                if(System.getenv("DONT_SWAP_STICKS_PLZ") != null)
+                {
+                    X = "rx";
+                    Y = "ry";
+                    RX = "x";
+                    RY = "y";
+                }
+                else
+                {
+                    X = "x";
+                    Y = "y";
+                    RX = "rx";
+                    RY = "ry";
+                }
                 Object[] gamepads = getGamepads();
                 double left_x = 0, left_y = 0, right_x = 0, right_y = 0;
                 int pov = 0;
@@ -73,13 +88,13 @@ public class Main extends Frame implements KeyListener, WindowListener, MouseLis
                         {
                             String name = e.getComponent().getName();
                             double val = e.getValue();
-                            if(name.equals("x"))
+                            if(name.equals(X))
                                 left_x = val;
-                            else if(name.equals("y"))
+                            else if(name.equals(Y))
                                 left_y = val;
-                            else if(name.equals("rx"))
+                            else if(name.equals(RX))
                                 right_x = val;
-                            else if(name.equals("ry"))
+                            else if(name.equals(RY))
                                 right_y = -val;
                             else if(name.equals("pov"))
                             {
