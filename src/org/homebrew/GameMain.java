@@ -47,8 +47,10 @@ public class GameMain
     private int skip;
     private boolean[] keyStates;
     private int vel_x;
+    private double vel_x_stick;
     private double vel_y;
     private int vel_z;
+    private double vel_z_stick;
     private int vel_yaw;
     private int vel_pitch;
     private int deltaX;
@@ -161,7 +163,7 @@ public class GameMain
         playerY = maxHeight[64*129] + 2.6;
         playerYaw = playerYaw_sin = playerPitch = playerPitch_sin = 0;
         playerYaw_cos = playerPitch_cos = 1;
-        vel_y = vel_x = vel_z = 0;
+        vel_x_stick = vel_z_stick = vel_y = vel_x = vel_z = 0;
 	playerX_fp = (int)(playerX*65536);
 	playerY_fp = (int)(playerY*65536);
 	playerZ_fp = (int)(playerZ*65536);
@@ -386,7 +388,7 @@ public class GameMain
                 playerPitch = -Math.PI/2;
             playerPitch_cos = Math.cos(playerPitch);
             playerPitch_sin = Math.sin(playerPitch);
-            playerX += vel_x * playerYaw_cos / 250.0 + vel_z * playerYaw_sin / 250.0;
+            playerX += (vel_x + vel_x_stick) * playerYaw_cos / 250.0 + (vel_z + vel_z_stick) * playerYaw_sin / 250.0;
             if(playerX < 0)
                 playerX = 0;
             if(playerX >= 128)
@@ -397,7 +399,7 @@ public class GameMain
             if(playerY >= 128)
                 playerY = 127.999999;
             vel_y -= 0.004;
-            playerZ += vel_z * playerYaw_cos / 250.0 - vel_x * playerYaw_sin / 250.0;
+            playerZ += (vel_z + vel_z_stick) * playerYaw_cos / 250.0 - (vel_x + vel_x_stick) * playerYaw_sin / 250.0;
             if(playerZ < 0)
                 playerZ = 0;
             if(playerZ >= 128)
@@ -1216,6 +1218,14 @@ public class GameMain
         }
         deltaX += dx;
         deltaY += dy;
+    }
+    public void rightStick(double vx, double vz)
+    {
+        if(gui == null)
+        {
+            vel_x_stick = vx;
+            vel_z_stick = vz;
+        }
     }
     public void mouseEvent(int button)
     {

@@ -20,6 +20,18 @@ public class Main extends Frame implements KeyListener, WindowListener, MouseLis
     private int offset_bottom;
     private Cursor blankCursor;
     private Cursor oldCursor;
+    private Object[] getGamepads()
+    {
+        try
+        {
+            return net.java.games.input.ControllerEnvironment.getDefaultEnvironment().getControllers();
+        }
+        catch(NoClassDefFoundError e) // no jinput in classpath
+        {
+            throw e;
+            //return new Object[0];
+        }
+    }
     public Main() throws Exception
     {
         super();
@@ -42,12 +54,90 @@ public class Main extends Frame implements KeyListener, WindowListener, MouseLis
         {
             public void run()
             {
-                while(true)
+                Object[] gamepads = getGamepads();
+                double left_x = 0, left_y = 0, right_x = 0, right_y = 0;
+                int pov = 0;
+                long prev_time = System.currentTimeMillis();
+		while(true)
                 {
                     synchronized(game)
                     {
                         game.render(fb);
                     }
+                    for(int i = 0; i < gamepads.length; i++)
+                    {
+                        net.java.games.input.Controller g = (net.java.games.input.Controller)gamepads[i];
+                        net.java.games.input.Event e = new net.java.games.input.Event();
+                        g.poll();
+                        while(g.getEventQueue().getNextEvent(e))
+                        {
+                            String name = e.getComponent().getName();
+                            double val = e.getValue();
+                            if(name.equals("x"))
+                                left_x = val;
+                            else if(name.equals("y"))
+                                left_y = val;
+                            else if(name.equals("rx"))
+                                right_x = val;
+                            else if(name.equals("ry"))
+                                right_y = -val;
+                            else if(name.equals("pov"))
+                            {
+                                pov = (int)(val*8);
+                                synchronized(game)
+                                {
+                                    game.keyEvent((pov==1||pov>=7?1:-1)*37);
+                                    game.keyEvent((pov>=1&&pov<=3?1:-1)*38);
+                                    game.keyEvent((pov>=3&&pov<=5?1:-1)*39);
+                                    game.keyEvent((pov>=5&&pov<=7?1:-1)*40);
+                                }
+                            }
+                            else
+                            {
+                                int key = -1;
+                                if(name.equals("Left Thumb"))
+                                    key = 424;
+                                else if(name.equals("Right Thumb"))
+                                    key = 425;
+                                else if(name.equals("Left Thumb 2"))
+                                    key = 412;
+                                else if(name.equals("Right Thumb 2"))
+                                    key = 417;
+                                else if(name.equals("A"))
+                                    key = 10;
+                                else if(name.equals("B"))
+                                    key = 19;
+                                else if(name.equals("Y"))
+                                    key = 461;
+                                if(key >= 0)
+                                {
+                                    if(val == 0)
+                                        key = -key;
+                                    synchronized(game)
+                                    {
+                                        game.keyEvent(key);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    long cur_time = System.currentTimeMillis();
+                    synchronized(game)
+                    {
+                        if(game.doCaptureMouse())
+                        {
+                            game.mouseMove((int)((cur_time-prev_time)*left_x), (int)((cur_time-prev_time)*left_y));
+                            game.rightStick(right_x, right_y);
+                        }
+                        else if(pov == 0)
+                        {
+                            game.keyEvent((left_x==-1?1:-1)*37);
+                            game.keyEvent((left_y==-1?1:-1)*38);
+                            game.keyEvent((left_x==1?1:-1)*39);
+                            game.keyEvent((left_y==1?1:-1)*40);
+                        }
+                    }
+                    prev_time = cur_time;
                     if(game.doCaptureMouse() != mouseCaptured)
                     {
                         mouseCaptured = !mouseCaptured;

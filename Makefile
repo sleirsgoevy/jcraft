@@ -1,12 +1,12 @@
 JAVAC = javac -source 1.3 -target 1.3 -cp src
 GEN_SRC = src/org/homebrew/TextureAtlas.java src/org/homebrew/FontBundle.java
 
-src.jar: src/Main.class src/org/homebrew/GameMain.class src/org/homebrew/MapGen.class src/org/homebrew/Life3d.class src/org/homebrew/FontRenderer.class src/org/homebrew/Inventory.class src/org/homebrew/ItemNames.class src/org/homebrew/GUI.class src/org/homebrew/GUIWithButtons.class src/org/homebrew/StartMenu.class src/org/homebrew/PauseMenu.class src/org/homebrew/GeneratingGUI.class src/org/homebrew/LevelSave.class $(GEN_SRC)
+src.jar: src/Main.class src/org/homebrew/GameMain.class src/org/homebrew/MapGen.class src/org/homebrew/Life3d.class src/org/homebrew/FontRenderer.class src/org/homebrew/Inventory.class src/org/homebrew/ItemNames.class src/org/homebrew/GUI.class src/org/homebrew/GUIWithButtons.class src/org/homebrew/StartMenu.class src/org/homebrew/PauseMenu.class src/org/homebrew/GeneratingGUI.class src/org/homebrew/LevelSave.class src/org/homebrew/TextureAtlas.class src/org/homebrew/FontBundle.class
 	rm -f src.jar
 	cd src; zip -r ../src.jar .
 
-src/Main.class: src/Main.java $(GEN_SRC)
-	$(JAVAC) src/Main.java
+src/Main.class: src/Main.java $(GEN_SRC) jinput.jar
+	javac -source 1.3 -target 1.3 -cp jinput.jar:src src/Main.java
 
 src/org/homebrew/GameMain.class: src/org/homebrew/GameMain.java $(GEN_SRC)
 	$(JAVAC) src/org/homebrew/GameMain.java
@@ -95,6 +95,9 @@ textures/lava_still_0.png: minecraft.jar
 minecraft.jar:
 	echo "Put minecraft.jar here to extract the textures!"
 	false
+
+jinput.jar:
+	wget https://repo1.maven.org/maven2/net/java/jinput/jinput/2.0.9/jinput-2.0.9.jar -O jinput.jar
 
 clean:
 	rm -f src.jar src/*.class src/org/homebrew/*.class $(GEN_SRC) textures/*.png
