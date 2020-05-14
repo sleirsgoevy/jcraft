@@ -42,6 +42,7 @@ public class GameMain
     private double playerPitch_sin;
     private int playerPitch_sin_fp;
     private byte[] preflight;
+    private byte[] preflight_bl;
     private int[] dsu;
     public int[] matrix_fp;
     private int skip;
@@ -71,6 +72,7 @@ public class GameMain
         playerMeta = new double[5];
         genHomeScreen();
         preflight = new byte[(128*128*128)/8];
+        preflight_bl = new byte[(128*128*128)/8];
         dsu = new int[640*480];
         matrix_fp = new int[18];
         skip = 256;
@@ -181,7 +183,7 @@ public class GameMain
         if(gui == null || !gui.doStopEngine())
         {
             for(int i = 0; i < preflight.length; i++)
-                preflight[i] = 0;
+                preflight[i] = preflight_bl[i] = 0;
             int px = (int)playerX;
             int py = (int)playerY;
             int pz = (int)playerZ;
@@ -474,12 +476,6 @@ public class GameMain
         if((preflight[idx] & mask) != 0)
             return;
         preflight[idx] = (byte)(preflight[idx] | mask);
-        if((world[pos] & 128) != 0) // can't see through solid blocks
-        {
-            if(y > maxHeight[pos>>7])
-                throw new RuntimeException("maxHeight fucked up");
-            return;
-        }
         boolean onGround = y > maxHeight[pos>>7];
         boolean skyHit = true;
         for(int xi = (x==0?x:x-1); xi <= x + 1 && xi < 128; xi++)
@@ -507,7 +503,10 @@ public class GameMain
         else
             zz_fp += (int)((((z<<16)-playerZ_fp)*c3_fp)>>16);
         if(zz_fp < 0) // block is fully invisible
+        {
+            preflight_bl[idx] |= mask;
             return;
+        }
         if((point_out_of_screen(x, y, z)
           & point_out_of_screen(x+1, y, z)
           & point_out_of_screen(x, (onGround?128:y+1), z)
@@ -516,7 +515,16 @@ public class GameMain
           & point_out_of_screen(x+1, y, z+1)
           & point_out_of_screen(x, (onGround?128:y+1), z+1)
           & point_out_of_screen(x+1, (onGround?128:y+1), z+1)) != 0) // block is in front of the player but outside of the frame
+        {
+            preflight_bl[idx] |= mask;
             return;
+        }
+        if((world[pos] & 128) != 0) // can't see through solid blocks
+        {
+            if(y > maxHeight[pos>>7])
+                throw new RuntimeException("maxHeight fucked up");
+            return;
+        }
         if(skyHit)
         {
             dfs_preflight(preflight, world, x, y-1, z, px, py, pz);
@@ -615,7 +623,7 @@ public class GameMain
         int pos = x*16384+z*128+y;
         int idx = pos >> 3;
         int mask = 1 << (pos & 7);
-        if((preflight[idx] & mask) == 0)
+        if((preflight[idx] & mask) == 0 || (preflight_bl[idx] & mask) != 0)
             return;
         int block = 255&(int)world[pos];
         if(block == 0 || (block ^ skip) < 2)
@@ -1071,8 +1079,8 @@ public class GameMain
             }
             if(xa_fpl < 0)
                 xa_fpl = 0;
-            if(xb_fpl > 639*65535)
-                xb_fpl = 639*65535;
+            if(xb_fpl > 639*65536)
+                xb_fpl = 639*65536;
             if(xa_fpl > xb_fpl)
                 continue;
             int start = 640 * y + (int)(xa_fpl>>16);
