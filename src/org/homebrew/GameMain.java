@@ -23,6 +23,7 @@ public class GameMain
     private byte[] world0;
     private byte[] maxHeight;
     private int[] aux;
+    private long[] aux2;
     private int[] genParams;
     private double[] playerMeta;
     private double playerX;
@@ -43,7 +44,7 @@ public class GameMain
     private int playerPitch_sin_fp;
     private byte[] preflight;
     private byte[] preflight_bl;
-    private int[] dsu;
+    private int[] segtree;
     public int[] matrix_fp;
     private int skip;
     private boolean[] keyStates;
@@ -67,13 +68,14 @@ public class GameMain
         world = new byte[128*128*128];
         world0 = new byte[128*128*128];
         maxHeight = new byte[128*128];
-        aux = new int[500000];
+        aux = new int[699050];
+        aux2 = new long[1024];
         genParams = new int[2];
         playerMeta = new double[5];
         genHomeScreen();
         preflight = new byte[(128*128*128)/8];
         preflight_bl = new byte[(128*128*128)/8];
-        dsu = new int[640*480];
+        segtree = aux;
         matrix_fp = new int[18];
         skip = 256;
         keyStates = new boolean[1024];
@@ -187,11 +189,11 @@ public class GameMain
             int px = (int)playerX;
             int py = (int)playerY;
             int pz = (int)playerZ;
-            dfs_preflight(preflight, world, px, py, pz, px, py, pz);
+            bfs_preflight(preflight, world, px, py, pz);
             for(int i = 0; i < 640*480; i++)
                 buffer[i] = 0;
-            for(int i = 0; i < 640*480; i++)
-                dsu[i] = i + 1;
+            for(int i = 0; i < 699050; i++)
+                segtree[i] = 0;
             for(int i = px; i >= 0; i--)
             {
                 for(int j = py; j >= 0; j--)
@@ -226,6 +228,8 @@ public class GameMain
                         render_block(buffer, i, j, k);
                 }
             }
+            flush(buffer, segtree, 0, 0, 512, 0, 512);
+            flush(buffer, segtree, 1, 512, 1024, 0, 512);
             int prev_pos = -1;
             int prev_side = -1;
             int tex_start = -1;
@@ -468,14 +472,62 @@ public class GameMain
         if(world[16384*(playerX_fp>>16)+128*(playerZ_fp>>16)+(playerY_fp>>16)] >= 0)
             skip = (world[16384*(playerX_fp>>16)+128*(playerZ_fp>>16)+(playerY_fp>>16)]&254);
     }
-    private void dfs_preflight(byte[] preflight, byte[] world, int x, int y, int z, int px, int py, int pz)
+    private void bfs_preflight(byte[] preflight, byte[] world, int px, int py, int pz)
+    {
+        int pos = 16384*px+128*pz+py;
+        int idx = pos >> 3;
+        int mask = 1 << (pos&7);
+        preflight[idx] |= mask;
+        for(int i = px; i >= 0; i--)
+        {
+            for(int j = pz; j >= 0; j--)
+            {
+                for(int k = 127; k >= 0; k--)
+                    if((preflight[(16384*i+128*j+k)>>3]&(1<<(k&7)))!=0)
+                        bfs_step(preflight, world, i, k, j, px, py, pz);
+                for(int k = 0; k < 128; k++)
+                    if((preflight[(16384*i+128*j+k)>>3]&(1<<(k&7)))!=0)
+                        bfs_step(preflight, world, i, k, j, px, py, pz);
+            }
+            for(int j = pz + 1; j < 128; j++)
+            {
+                for(int k = 127; k >= 0; k--)
+                    if((preflight[(16384*i+128*j+k)>>3]&(1<<(k&7)))!=0)
+                        bfs_step(preflight, world, i, k, j, px, py, pz);
+                for(int k = 0; k < 128; k++)
+                    if((preflight[(16384*i+128*j+k)>>3]&(1<<(k&7)))!=0)
+                        bfs_step(preflight, world, i, k, j, px, py, pz);
+            }
+        }
+        for(int i = px + 1; i < 128; i++)
+        {
+            for(int j = pz; j >= 0; j--)
+            {
+                for(int k = 127; k >= 0; k--)
+                    if((preflight[(16384*i+128*j+k)>>3]&(1<<(k&7)))!=0)
+                        bfs_step(preflight, world, i, k, j, px, py, pz);
+                for(int k = 0; k < 128; k++)
+                    if((preflight[(16384*i+128*j+k)>>3]&(1<<(k&7)))!=0)
+                        bfs_step(preflight, world, i, k, j, px, py, pz);
+            }
+            for(int j = pz + 1; j < 128; j++)
+            {
+                for(int k = 127; k >= 0; k--)
+                    if((preflight[(16384*i+128*j+k)>>3]&(1<<(k&7)))!=0)
+                        bfs_step(preflight, world, i, k, j, px, py, pz);
+                for(int k = 0; k < 128; k++)
+                    if((preflight[(16384*i+128*j+k)>>3]&(1<<(k&7)))!=0)
+                        bfs_step(preflight, world, i, k, j, px, py, pz);
+            }
+        }
+    }
+    private void bfs_step(byte[] preflight, byte[] world, int x, int y, int z, int px, int py, int pz)
     {
         int pos = x*16384+z*128+y;
         int idx = pos >> 3;
         int mask = 1 << (pos & 7);
-        if((preflight[idx] & mask) != 0)
+        if((preflight[idx] & mask) == 0)
             return;
-        preflight[idx] = (byte)(preflight[idx] | mask);
         boolean onGround = y > maxHeight[pos>>7];
         boolean skyHit = true;
         for(int xi = (x==0?x:x-1); xi <= x + 1 && xi < 128; xi++)
@@ -527,21 +579,34 @@ public class GameMain
         }
         if(skyHit)
         {
-            dfs_preflight(preflight, world, x, y-1, z, px, py, pz);
+            if(mask == 1)
+                preflight[idx-1] |= 128;
+            else
+                preflight[idx] |= mask >> 1;
             return;
         }
         if(x != 127 && x >= px)
-            dfs_preflight(preflight, world, x+1, y, z, px, py, pz);
+            preflight[idx+2048] |= mask;
         if(x != 0 && x <= px)
-            dfs_preflight(preflight, world, x-1, y, z, px, py, pz);
+            preflight[idx-2048] |= mask;
         if(y != 127 && (y >= py || onGround) && !skyHit)
-            dfs_preflight(preflight, world, x, y+1, z, px, py, pz);
+        {
+            if(mask == 128)
+                preflight[idx+1] |= 1;
+            else
+                preflight[idx] |= mask << 1;
+        }
         if(y != 0 && y <= py)
-            dfs_preflight(preflight, world, x, y-1, z, px, py, pz);
+        {
+            if(mask == 1)
+                preflight[idx-1] |= 128;
+            else
+                preflight[idx] |= mask >> 1;
+        }
         if(z != 127 && z >= pz)
-            dfs_preflight(preflight, world, x, y, z+1, px, py, pz);
+            preflight[idx+16] |= mask;
         if(z != 0 && z <= pz)
-            dfs_preflight(preflight, world, x, y, z-1, px, py, pz);
+            preflight[idx-16] |= mask;
     }
     public void matrix_invert()
     {
@@ -620,14 +685,16 @@ public class GameMain
     }
     private void render_block(int[] buffer, int x, int y, int z)
     {
+        if(segtree[0] != 0 && segtree[0] != 1)
+            return;
         int pos = x*16384+z*128+y;
         int idx = pos >> 3;
         int mask = 1 << (pos & 7);
         if((preflight[idx] & mask) == 0 || (preflight_bl[idx] & mask) != 0)
             return;
         int block = 255&(int)world[pos];
-        if(block == 0 || (block ^ skip) < 2)
-            return; //air
+        if(block == 0 /* air */ || (block ^ skip) < 2)
+            return;
         int bbox_offset;
         if(block >= 128)
             bbox_offset = 12;
@@ -656,17 +723,17 @@ public class GameMain
         }
         else
         {
-            if(playerY_fp < y0 && (y0 != (y<<16) || world[pos-1] >= 0))
+            if(playerY_fp < y0 && world[pos-1] >= 0)
                 render_plane_legacy(buffer, x0, y0, z0, x1, y0, z0, x1, y0, z1, x0, y0, z1, 0xb3000000|pos, false);
-            if(playerY_fp > y1 && (y1 != ((y+1)<<16) || world[pos+1] >= 0))
+            if(playerY_fp > y1 && world[pos+1] >= 0)
                 render_plane_legacy(buffer, x0, y1, z0, x1, y1, z0, x1, y1, z1, x0, y1, z1, 0xb3200000|pos, false);
-            if(playerX_fp < x0 && (x0 != (x<<16) || world[pos-16384] >= 0))
+            if(playerX_fp < x0 && world[pos-16384] >= 0)
                 render_plane_legacy(buffer, x0, y0, z0, x0, y1, z0, x0, y1, z1, x0, y0, z1, 0xb3400000|pos, false);
-            if(playerX_fp > x1 && (x1 != ((x+1)<<16) || world[pos+16384] >= 0))
+            if(playerX_fp > x1 && world[pos+16384] >= 0)
                 render_plane_legacy(buffer, x1, y0, z0, x1, y1, z0, x1, y1, z1, x1, y0, z1, 0xb3600000|pos, false);
-            if(playerZ_fp < z0 && (z0 != (z<<16) || world[pos-128] >= 0))
+            if(playerZ_fp < z0 && world[pos-128] >= 0)
                 render_plane_legacy(buffer, x0, y0, z0, x1, y0, z0, x1, y1, z0, x0, y1, z0, 0xb3800000|pos, false);
-            if(playerZ_fp > z1 && (z1 != ((z+1)<<16) || world[pos+128] >= 0))
+            if(playerZ_fp > z1 && world[pos+128] >= 0)
                 render_plane_legacy(buffer, x0, y0, z1, x1, y0, z1, x1, y1, z1, x0, y1, z1, 0xb3a00000|pos, false);
         }
     }
@@ -806,8 +873,8 @@ public class GameMain
             draw_line(buffer, x3_fp, y3_fp, z3_fp, x4_fp, y4_fp, z4_fp);
             draw_line(buffer, x4_fp, y4_fp, z4_fp, x1_fp, y1_fp, z1_fp);
         }
-        render3(buffer, dsu, x1_fp, y1_fp, z1_fp, x2_fp, y2_fp, z2_fp, x3_fp, y3_fp, z3_fp, color);
-        render3(buffer, dsu, x1_fp, y1_fp, z1_fp, x4_fp, y4_fp, z4_fp, x3_fp, y3_fp, z3_fp, color | 0x1000000);
+        render3(segtree, aux2, x1_fp, y1_fp, z1_fp, x2_fp, y2_fp, z2_fp, x3_fp, y3_fp, z3_fp, color);
+        render3(segtree, aux2, x1_fp, y1_fp, z1_fp, x4_fp, y4_fp, z4_fp, x3_fp, y3_fp, z3_fp, color | 0x1000000);
     }
     private void render_plane_legacy(int[] buffer, int x1_fp, int y1_fp, int z1_fp, int x2_fp, int y2_fp, int z2_fp, int x3_fp, int y3_fp, int z3_fp, int x4_fp, int y4_fp, int z4_fp, int color, boolean outline)
     {
@@ -855,8 +922,8 @@ public class GameMain
             draw_line(buffer, x3_fp, y3_fp, z3_fp, x4_fp, y4_fp, z4_fp);
             draw_line(buffer, x4_fp, y4_fp, z4_fp, x1_fp, y1_fp, z1_fp);
         }
-        render3(buffer, dsu, x1_fp, y1_fp, z1_fp, x2_fp, y2_fp, z2_fp, x3_fp, y3_fp, z3_fp, color);
-        render3(buffer, dsu, x1_fp, y1_fp, z1_fp, x4_fp, y4_fp, z4_fp, x3_fp, y3_fp, z3_fp, color);
+        render3(segtree, aux2, x1_fp, y1_fp, z1_fp, x2_fp, y2_fp, z2_fp, x3_fp, y3_fp, z3_fp, color);
+        render3(segtree, aux2, x1_fp, y1_fp, z1_fp, x4_fp, y4_fp, z4_fp, x3_fp, y3_fp, z3_fp, color);
     }
     private static void draw_line(int[] buffer, int x1_fp, int y1_fp, int z1_fp, int x2_fp, int y2_fp, int z2_fp)
     {
@@ -936,7 +1003,7 @@ public class GameMain
             }
         }
     }
-    private static void render3(int[] buffer, int[] dsu, int x1_fp, int y1_fp, int z1_fp, int x2_fp, int y2_fp, int z2_fp, int x3_fp, int y3_fp, int z3_fp, int color)
+    private static void render3(int[] segtree, long[] aux2, int x1_fp, int y1_fp, int z1_fp, int x2_fp, int y2_fp, int z2_fp, int x3_fp, int y3_fp, int z3_fp, int color)
     {
         int tmp_fp;
         if(z1_fp > z2_fp)
@@ -999,13 +1066,109 @@ public class GameMain
             x5_fp = x3_fp - (int)(((x3_fp - x1_fp) * (long)tmp_fp)>>16);
             y5_fp = y3_fp - (int)(((y3_fp - y1_fp) * (long)tmp_fp)>>16);
             z5_fp = 1;
-            render3_raw(buffer, dsu, x4_fp, y4_fp, z4_fp, x5_fp, y5_fp, z5_fp, x3_fp, y3_fp, z3_fp, color);
-            render3_raw(buffer, dsu, x4_fp, y4_fp, z4_fp, x2_fp, y2_fp, z2_fp, x3_fp, y3_fp, z3_fp, color);
+            render3_raw(segtree, aux2, x4_fp, y4_fp, z4_fp, x5_fp, y5_fp, z5_fp, x3_fp, y3_fp, z3_fp, color);
+            render3_raw(segtree, aux2, x4_fp, y4_fp, z4_fp, x2_fp, y2_fp, z2_fp, x3_fp, y3_fp, z3_fp, color);
             return;
         }
-        render3_raw(buffer, dsu, x1_fp, y1_fp, z1_fp, x2_fp, y2_fp, z2_fp, x3_fp, y3_fp, z3_fp, color);
+        render3_raw(segtree, aux2, x1_fp, y1_fp, z1_fp, x2_fp, y2_fp, z2_fp, x3_fp, y3_fp, z3_fp, color);
     }
-    private static void render3_raw(int[] buffer, int[] dsu, int x1_fp, int y1_fp, int z1_fp, int x2_fp, int y2_fp, int z2_fp, int x3_fp, int y3_fp, int z3_fp, int color)
+    private static int draw0(int[] segtree, int idx, int l, int r, int up, int dn, long a, long b, long c, long d, long e, long f, long g, long h, long i, int color)
+    {
+        if(segtree[idx] != 0 && segtree[idx] != 1)
+            return 0;
+        int m1 = (l+r)/2;
+        int m2 = (up+dn)/2;
+        boolean ul1 = (a*l+b*up+c) > 0;
+        boolean ul2 = (d*l+e*up+f) > 0;
+        boolean ul3 = (g*l+h*up+i) > 0;
+        boolean ur1 = (a*r+b*up+c) > 0;
+        boolean ur2 = (d*r+e*up+f) > 0;
+        boolean ur3 = (g*r+h*up+i) > 0;
+        boolean dl1 = (a*l+b*dn+c) > 0;
+        boolean dl2 = (d*l+e*dn+f) > 0;
+        boolean dl3 = (g*l+h*dn+i) > 0;
+        boolean dr1 = (a*r+b*dn+c) > 0;
+        boolean dr2 = (d*r+e*dn+f) > 0;
+        boolean dr3 = (g*r+h*dn+i) > 0;
+        if(ul1 && ul2 && ul3 && ur1 && ur2 && ur3 && dl1 && dl2 && dl3 && dr1 && dr2 && dr3 && segtree[idx] == 0)
+        {
+            segtree[idx] = color;
+            return 1;
+        }
+        else if((!ul1 && !ur1 && !dl1 && !dr1) || (!ul2 && !ur2 && !dl2 && !dr2) || (!ul3 && !ur3 && !dl3 && !dr3))
+        {
+            return 0;
+        }
+        else if(m1 != l)
+        {
+            if((draw0(segtree, 4*idx+2, l, m1, up, m2, a, b, c, d, e, f, g, h, i, color) | draw0(segtree, 4*idx+3, m1, r, up, m2, a, b, c, d, e, f, g, h, i, color) | draw0(segtree, 4*idx+4, l, m1, m2, dn, a, b, c, d, e, f, g, h, i, color) | draw0(segtree, 4*idx+5, m1, r, m2, dn, a, b, c, d, e, f, g, h, i, color)) != 0)
+            {
+                if(segtree[4*idx+2] != 0 && segtree[4*idx+2] != 1 && segtree[4*idx+3] != 0 && segtree[4*idx+3] != 1 && segtree[4*idx+4] != 0 && segtree[4*idx+4] != 1 && segtree[4*idx+5] != 0 && segtree[4*idx+5] != 1)
+                    segtree[idx] = 2;
+                else
+                    segtree[idx] = 1;
+                return 1;
+            }
+        }
+        else if((ul1 && ul2 && ul3) || (ur1 && ur2 && ur3) || (dl1 && dl2 && dl3) || (dr1 && dr2 && dr3))
+            segtree[idx] = color;
+        return 0;
+    }
+    private static void draw1(int[] segtree, long a, long b, long c, long d, long e, long f, long g, long h, long i, int color)
+    {
+        draw0(segtree, 0, 0, 512, 0, 512, a, b, c, d, e, f, g, h, i, color);
+        draw0(segtree, 1, 512, 1024, 0, 512, a, b, c, d, e, f, g, h, i, color);
+    }
+    private static void get_abc(int x1, int y1, int x2, int y2, int x3, int y3, long[] ans)
+    {
+        long a = y2 - y1;
+        long b = x1 - x2;
+        long c = -a*x1-b*y1;
+        if(a*x3+b*y3+c < 0)
+        {
+            a = -a;
+            b = -b;
+            c = -c;
+        }
+        ans[0] = a;
+        ans[1] = b;
+        ans[2] = c;
+    }
+    private static void draw(int[] segtree, long[] aux2, int x1, int y1, int x2, int y2, int x3, int y3, int color)
+    {
+        get_abc(x1, y1, x2, y2, x3, y3, aux2);
+        long a1 = aux2[0], b1 = aux2[1], c1 = aux2[2];
+        get_abc(x2, y2, x3, y3, x1, y1, aux2);
+        long a2 = aux2[0], b2 = aux2[1], c2 = aux2[2];
+        get_abc(x3, y3, x1, y1, x2, y2, aux2);
+        long a3 = aux2[0], b3 = aux2[1], c3 = aux2[2];
+        draw1(segtree, a1, b1, c1, a2, b2, c2, a3, b3, c3, color);
+    }
+    private static void flush(int[] framebuffer, int[] segtree, int idx, int l, int r, int up, int dn)
+    {
+        if(up >= 480 || l >= 640)
+            return;
+        int m1 = (l+r)/2;
+        int m2 = (up+dn)/2;
+        if(segtree[idx] != 0 && segtree[idx] != 1 && segtree[idx] != 2)
+        {
+            int c = segtree[idx];
+            segtree[idx] = 0;
+            for(int y = up; y < dn && y < 480; y++)
+                for(int x = l; x < r && x < 640; x++)
+                    framebuffer[640*y+x] = c;
+        }
+        else if(l != m1)
+        {
+            flush(framebuffer, segtree, 4*idx+2, l, m1, up, m2);
+            flush(framebuffer, segtree, 4*idx+3, m1, r, up, m2);
+            flush(framebuffer, segtree, 4*idx+4, l, m1, m2, dn);
+            flush(framebuffer, segtree, 4*idx+5, m1, r, m2, dn);
+        }
+        else
+            framebuffer[640*up+l] = 0;
+    }
+    private static void render3_raw(int[] segtree, long[] aux2, int x1_fp, int y1_fp, int z1_fp, int x2_fp, int y2_fp, int z2_fp, int x3_fp, int y3_fp, int z3_fp, int color)
     {
         long x1_fpl = 320*65536 + (x1_fp*(250l*65536l)) / z1_fp;
         long y1_fpl = 240*65536 - (y1_fp*(250l*65536l)) / z1_fp;
@@ -1013,89 +1176,13 @@ public class GameMain
         long y2_fpl = 240*65536 - (y2_fp*(250l*65536l)) / z2_fp;
         long x3_fpl = 320*65536 + (x3_fp*(250l*65536l)) / z3_fp;
         long y3_fpl = 240*65536 - (y3_fp*(250l*65536l)) / z3_fp;
-        long tmp_fpl;
-        if(y1_fpl > y2_fpl)
-        {
-            tmp_fpl = x1_fpl;
-            x1_fpl = x2_fpl;
-            x2_fpl = tmp_fpl;
-            tmp_fpl = y1_fpl;
-            y1_fpl = y2_fpl;
-            y2_fpl = tmp_fpl;
-        }
-        if(y1_fpl > y3_fpl)
-        {
-            tmp_fpl = x1_fpl;
-            x1_fpl = x3_fpl;
-            x3_fpl = tmp_fpl;
-            tmp_fpl = y1_fpl;
-            y1_fpl = y3_fpl;
-            y3_fpl = tmp_fpl;
-        }
-        if(y2_fpl > y3_fpl)
-        {
-            tmp_fpl = x2_fpl;
-            x2_fpl = x3_fpl;
-            x3_fpl = tmp_fpl;
-            tmp_fpl = y2_fpl;
-            y2_fpl = y3_fpl;
-            y3_fpl = tmp_fpl;
-        }
-        if(y1_fpl == y3_fpl)
-            return;
-        int starty = (int)(y1_fpl>>16);
-        if(starty < 0)
-            starty = 0;
-        int endy = (int)((y3_fpl+65535)>>16);
-        if(endy >= 480)
-            endy = 479;
-        for(int y = starty; y <= endy; y++)
-        {
-            long xa_fpl = x1_fpl + (((y3_fpl-y1_fpl)>>12)==0?0:((((x3_fpl - x1_fpl)>>12)*(((y<<16) - y1_fpl)>>12)/((y3_fpl - y1_fpl)>>12))<<12));
-            long xb_fpl;
-            if((y<<16) < y2_fpl)
-            {
-                if(y2_fpl == y1_fpl)
-                    xb_fpl = x2_fpl;
-                else
-                    xb_fpl = x1_fpl + (((y2_fpl-y1_fpl)>>12)==0?0:((((x2_fpl - x1_fpl)>>12)*(((y<<16) - y1_fpl)>>12)/((y2_fpl - y1_fpl)>>12))<<12));
-            }
-            else
-            {
-                if(y3_fpl == y2_fpl)
-                    xb_fpl = x2_fpl;
-                else
-                    xb_fpl = x2_fpl + (((y3_fpl-y2_fpl)>>12)==0?0:((((x3_fpl - x2_fpl)>>12)*(((y<<16) - y2_fpl)>>12)/((y3_fpl - y2_fpl)>>12))<<12));
-            }
-            if((y<<16) < y1_fpl)
-                xa_fpl = xb_fpl = x1_fpl;
-            else if((y<<16) > y3_fpl)
-                xa_fpl = xb_fpl = x3_fpl;
-            if(xb_fpl < xa_fpl)
-            {
-                tmp_fpl = xb_fpl;
-                xb_fpl = xa_fpl;
-                xa_fpl = tmp_fpl;
-            }
-            if(xa_fpl < 0)
-                xa_fpl = 0;
-            if(xb_fpl > 639*65536)
-                xb_fpl = 639*65536;
-            if(xa_fpl > xb_fpl)
-                continue;
-            int start = 640 * y + (int)(xa_fpl>>16);
-            int end = 640 * y + (int)((xb_fpl+65535)>>16);
-            int i = start;
-            while(i < end)
-            {
-                if(buffer[i] == 0)
-                    buffer[i] = color;
-                int next = dsu[i];
-                if(next < end)
-                    dsu[i] = end;
-                i = next;
-            }
-        }
+        int x1 = (int)(x1_fpl >> 16);
+        int y1 = (int)(y1_fpl >> 16);
+        int x2 = (int)(x2_fpl >> 16);
+        int y2 = (int)(y2_fpl >> 16);
+        int x3 = (int)(x3_fpl >> 16);
+        int y3 = (int)(y3_fpl >> 16);
+        draw(segtree, aux2, x1, y1, x2, y2, x3, y3, color);
     }
     private void onkeydown(int key)
     {
