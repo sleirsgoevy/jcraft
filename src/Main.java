@@ -9,7 +9,8 @@ public class Main extends Frame implements KeyListener, WindowListener, MouseLis
 {
     private GameMain game;
     private BufferedImage frame;
-    private int[] fb = new int[640*480];
+    private BufferedImage frame2;
+    private int[] fb = new int[2*640*480];
     private int lastMouseX;
     private int lastMouseY;
     private boolean mouseCaptured;
@@ -36,6 +37,7 @@ public class Main extends Frame implements KeyListener, WindowListener, MouseLis
         super();
         game = new GameMain("");
         frame = new BufferedImage(640, 480, BufferedImage.TYPE_INT_ARGB);
+        frame2 = new BufferedImage(640, 480, BufferedImage.TYPE_INT_ARGB);
         robot = new Robot();
         Insets ins = getInsets();
         setSize(640+ins.left+ins.right, 480+ins.top+ins.bottom);
@@ -179,8 +181,12 @@ public class Main extends Frame implements KeyListener, WindowListener, MouseLis
     }
     public void my_paint(Graphics g)
     {
+        Graphics2D g2 = frame2.createGraphics();
+        frame.setRGB(0, 0, 640, 480, fb, 640*480, 640);
+        g2.drawImage(frame, 0, 0, 640, 480, 0, 0, 640, 480, null);
         frame.setRGB(0, 0, 640, 480, fb, 0, 640);
-        g.drawImage(frame, offset_left, offset_top, 640+offset_left, 480+offset_top, 0, 0, 640, 480, null);
+        g2.drawImage(frame, 0, 0, 640, 480, 0, 0, 640, 480, null);
+        g.drawImage(frame2, offset_left, offset_top, 640+offset_left, 480+offset_top, 0, 0, 640, 480, null);
     }
     public void keyPressed(KeyEvent e)
     {

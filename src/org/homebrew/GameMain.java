@@ -58,7 +58,7 @@ public class GameMain
     private int deltaY;
     private long prev_time;
     private int[] texture_atlas;
-    private int pointed_to;
+    private int pointed_at;
     private Inventory inv;
     private GUI gui;
     public GameMain(String level_save_path)
@@ -79,7 +79,7 @@ public class GameMain
         keyStates = new boolean[1024];
         prev_time = System.currentTimeMillis();
         texture_atlas = TextureAtlas.atlas;
-        pointed_to = -1;
+        pointed_at = -1;
         inv = new Inventory();
         showGUI(new StartMenu(this));
     }
@@ -189,9 +189,13 @@ public class GameMain
             int pz = (int)playerZ;
             dfs_preflight(preflight, world, px, py, pz, px, py, pz);
             for(int i = 0; i < 640*480; i++)
+            {
                 buffer[i] = 0;
+                buffer[i+640*480] = (skip==126?0xffff4000:0xffffffff);
+            }
             for(int i = 0; i < 640*480; i++)
                 dsu[i] = i + 1;
+            pointed_at = -1;
             for(int i = px; i >= 0; i--)
             {
                 for(int j = py; j >= 0; j--)
@@ -226,13 +230,13 @@ public class GameMain
                         render_block(buffer, i, j, k);
                 }
             }
-            int prev_pos = -1;
+            /*int prev_pos = -1;
             int prev_side = -1;
             int tex_start = -1;
             if((buffer[640*240+320] & 0xfe000000) == 0xb2000000)
-                pointed_to = buffer[640*240+320] & 0x00ffffff;
+                pointed_at = buffer[640*240+320] & 0x00ffffff;
             else
-                pointed_to = -1;
+                pointed_at = -1;
             for(int i = 0; i < 640*480; i++)
                 if(buffer[i] == 0)
                     buffer[i] = -1;
@@ -302,7 +306,7 @@ public class GameMain
                         long coef_fp = (((long)bz_fp)<<16)/vz_fp;
                         tx_fp = ((vx_fp*coef_fp)>>16)-bx_fp;
                         ty_fp = ((vy_fp*coef_fp)>>16)-by_fp;
-                    }*/
+                    }* /
                     int vx_fp = ((i%640-320) << 16)/250;
                     int vy_fp = ((240-i/640) << 16)/250;
                     int vz_fp = 65536;
@@ -327,9 +331,9 @@ public class GameMain
                     int tx_i = (int)(tx_fp>>12);
                     int ty_i = (int)(ty_fp>>12);
                     /*if(side >= 2)
-                        ty_i = 15 - ty_i;*/
+                        ty_i = 15 - ty_i;* /
                     buffer[i] = texture_atlas[tex_start+256*ty_i+tx_i];
-                }
+                }*/
             playerPhysics();
         }
         else
@@ -639,8 +643,8 @@ public class GameMain
         int x1 = (x<<16)+bboxes[bbox_offset+3];
         int z0 = (z<<16)+bboxes[bbox_offset+4];
         int z1 = (z<<16)+bboxes[bbox_offset+5];
-        if(block < 128)
-        {
+        /*if(block < 128)
+        {*/
             if(playerY_fp < y0 && (y0 != (y<<16) || world[pos-1] >= 0))
                 render_plane(buffer, x, y, z, 0, 0xb2000000|pos, false);
             if(playerY_fp > y1 && (y1 != ((y+1)<<16) || world[pos+1] >= 0))
@@ -653,7 +657,7 @@ public class GameMain
                 render_plane(buffer, x, y, z, 4, 0xb2800000|pos, false);
             if(playerZ_fp > z1 && (z1 != ((z+1)<<16) || world[pos+128] >= 0))
                 render_plane(buffer, x, y, z, 5, 0xb2a00000|pos, false);
-        }
+        /*}
         else
         {
             if(playerY_fp < y0 && (y0 != (y<<16) || world[pos-1] >= 0))
@@ -668,7 +672,7 @@ public class GameMain
                 render_plane_legacy(buffer, x0, y0, z0, x1, y0, z0, x1, y1, z0, x0, y1, z0, 0xb3800000|pos, false);
             if(playerZ_fp > z1 && (z1 != ((z+1)<<16) || world[pos+128] >= 0))
                 render_plane_legacy(buffer, x0, y0, z1, x1, y0, z1, x1, y1, z1, x0, y1, z1, 0xb3a00000|pos, false);
-        }
+        }*/
     }
     private void get_plane_coords(int x, int y, int z, int side)
     {
@@ -799,6 +803,14 @@ public class GameMain
         int x4_fp = matrix_fp[9];
         int y4_fp = matrix_fp[10];
         int z4_fp = matrix_fp[11];
+        try
+        {
+            matrix_invert();
+        }
+        catch(ArithmeticException e)
+        {
+            return;
+        }
         if(outline)
         {
             draw_line(buffer, x1_fp, y1_fp, z1_fp, x2_fp, y2_fp, z2_fp);
@@ -806,10 +818,10 @@ public class GameMain
             draw_line(buffer, x3_fp, y3_fp, z3_fp, x4_fp, y4_fp, z4_fp);
             draw_line(buffer, x4_fp, y4_fp, z4_fp, x1_fp, y1_fp, z1_fp);
         }
-        render3(buffer, dsu, x1_fp, y1_fp, z1_fp, x2_fp, y2_fp, z2_fp, x3_fp, y3_fp, z3_fp, color);
-        render3(buffer, dsu, x1_fp, y1_fp, z1_fp, x4_fp, y4_fp, z4_fp, x3_fp, y3_fp, z3_fp, color | 0x1000000);
+        render3(buffer, x1_fp, y1_fp, z1_fp, x2_fp, y2_fp, z2_fp, x3_fp, y3_fp, z3_fp, color);
+        render3(buffer, x1_fp, y1_fp, z1_fp, x4_fp, y4_fp, z4_fp, x3_fp, y3_fp, z3_fp, color | 0x1000000);
     }
-    private void render_plane_legacy(int[] buffer, int x1_fp, int y1_fp, int z1_fp, int x2_fp, int y2_fp, int z2_fp, int x3_fp, int y3_fp, int z3_fp, int x4_fp, int y4_fp, int z4_fp, int color, boolean outline)
+    /*private void render_plane_legacy(int[] buffer, int x1_fp, int y1_fp, int z1_fp, int x2_fp, int y2_fp, int z2_fp, int x3_fp, int y3_fp, int z3_fp, int x4_fp, int y4_fp, int z4_fp, int color, boolean outline)
     {
         x1_fp -= playerX_fp;
         x2_fp -= playerX_fp;
@@ -855,9 +867,9 @@ public class GameMain
             draw_line(buffer, x3_fp, y3_fp, z3_fp, x4_fp, y4_fp, z4_fp);
             draw_line(buffer, x4_fp, y4_fp, z4_fp, x1_fp, y1_fp, z1_fp);
         }
-        render3(buffer, dsu, x1_fp, y1_fp, z1_fp, x2_fp, y2_fp, z2_fp, x3_fp, y3_fp, z3_fp, color);
-        render3(buffer, dsu, x1_fp, y1_fp, z1_fp, x4_fp, y4_fp, z4_fp, x3_fp, y3_fp, z3_fp, color);
-    }
+        render3(buffer, x1_fp, y1_fp, z1_fp, x2_fp, y2_fp, z2_fp, x3_fp, y3_fp, z3_fp, color);
+        render3(buffer, x1_fp, y1_fp, z1_fp, x4_fp, y4_fp, z4_fp, x3_fp, y3_fp, z3_fp, color);
+    }*/
     private static void draw_line(int[] buffer, int x1_fp, int y1_fp, int z1_fp, int x2_fp, int y2_fp, int z2_fp)
     {
         int tmp_fp;
@@ -936,7 +948,7 @@ public class GameMain
             }
         }
     }
-    private static void render3(int[] buffer, int[] dsu, int x1_fp, int y1_fp, int z1_fp, int x2_fp, int y2_fp, int z2_fp, int x3_fp, int y3_fp, int z3_fp, int color)
+    private void render3(int[] buffer, int x1_fp, int y1_fp, int z1_fp, int x2_fp, int y2_fp, int z2_fp, int x3_fp, int y3_fp, int z3_fp, int color)
     {
         int tmp_fp;
         if(z1_fp > z2_fp)
@@ -999,13 +1011,13 @@ public class GameMain
             x5_fp = x3_fp - (int)(((x3_fp - x1_fp) * (long)tmp_fp)>>16);
             y5_fp = y3_fp - (int)(((y3_fp - y1_fp) * (long)tmp_fp)>>16);
             z5_fp = 1;
-            render3_raw(buffer, dsu, x4_fp, y4_fp, z4_fp, x5_fp, y5_fp, z5_fp, x3_fp, y3_fp, z3_fp, color);
-            render3_raw(buffer, dsu, x4_fp, y4_fp, z4_fp, x2_fp, y2_fp, z2_fp, x3_fp, y3_fp, z3_fp, color);
+            render3_raw(buffer, x4_fp, y4_fp, z4_fp, x5_fp, y5_fp, z5_fp, x3_fp, y3_fp, z3_fp, color);
+            render3_raw(buffer, x4_fp, y4_fp, z4_fp, x2_fp, y2_fp, z2_fp, x3_fp, y3_fp, z3_fp, color);
             return;
         }
-        render3_raw(buffer, dsu, x1_fp, y1_fp, z1_fp, x2_fp, y2_fp, z2_fp, x3_fp, y3_fp, z3_fp, color);
+        render3_raw(buffer, x1_fp, y1_fp, z1_fp, x2_fp, y2_fp, z2_fp, x3_fp, y3_fp, z3_fp, color);
     }
-    private static void render3_raw(int[] buffer, int[] dsu, int x1_fp, int y1_fp, int z1_fp, int x2_fp, int y2_fp, int z2_fp, int x3_fp, int y3_fp, int z3_fp, int color)
+    private void render3_raw(int[] buffer, int x1_fp, int y1_fp, int z1_fp, int x2_fp, int y2_fp, int z2_fp, int x3_fp, int y3_fp, int z3_fp, int color)
     {
         long x1_fpl = 320*65536 + (x1_fp*(250l*65536l)) / z1_fp;
         long y1_fpl = 240*65536 - (y1_fp*(250l*65536l)) / z1_fp;
@@ -1049,6 +1061,17 @@ public class GameMain
         int endy = (int)((y3_fpl+65535)>>16);
         if(endy >= 480)
             endy = 479;
+        int pos = (color & 0x1fffff);
+        int side = (color & 0xe00000) >> 21;
+        if(side == 0)
+            side = 2;
+        else if(side == 1)
+            side = 0;
+        else
+            side = 1;
+        int block = (255 & (int)world[pos]);
+        int tex_id = block_textures[3*(block-126)+side];
+        int tex_start = 4096*(tex_id/16)+16*(tex_id%16);
         for(int y = starty; y <= endy; y++)
         {
             long xa_fpl = x1_fpl + (((y3_fpl-y1_fpl)>>12)==0?0:((((x3_fpl - x1_fpl)>>12)*(((y<<16) - y1_fpl)>>12)/((y3_fpl - y1_fpl)>>12))<<12));
@@ -1089,13 +1112,47 @@ public class GameMain
             while(i < end)
             {
                 if(buffer[i] == 0)
-                    buffer[i] = color;
+                {
+                    int vx_fp = ((i%640-320) << 16)/250;
+                    int vy_fp = ((240-i/640) << 16)/250;
+                    int vz_fp = 65536;
+                    int tz_fp = (int)((vx_fp*(long)matrix_fp[0]+vy_fp*(long)matrix_fp[3]+vz_fp*(long)matrix_fp[6])>>16);
+                    int tx_fp = (int)((vx_fp*(long)matrix_fp[1]+vy_fp*(long)matrix_fp[4]+vz_fp*(long)matrix_fp[7])>>16);
+                    int ty_fp = (int)((vx_fp*(long)matrix_fp[2]+vy_fp*(long)matrix_fp[5]+vz_fp*(long)matrix_fp[8])>>16);
+                    if(tz_fp == 0)
+                    {
+                        buffer[i] = 0xffff0000;
+                        continue;
+                    }
+                    tx_fp = (int)((((long)tx_fp)<<16)/tz_fp);
+                    ty_fp = (int)((((long)ty_fp)<<16)/tz_fp);
+                    if(tx_fp < 0)
+                        tx_fp = 0;
+                    if(tx_fp >= 65536)
+                        tx_fp = 65535;
+                    if(ty_fp < 0)
+                        ty_fp = 0;
+                    if(ty_fp >= 65536)
+                        ty_fp = 65535;
+                    int tx_i = (int)(tx_fp>>12);
+                    int ty_i = (int)(ty_fp>>12);
+                    int tz_i = (tz_fp < 65536/5)?0:(255-255*65536/tz_fp/5);
+                    /*if(side >= 2)
+                        ty_i = 15 - ty_i;*/
+                    int q = texture_atlas[tex_start+256*ty_i+tx_i];
+                    if(skip == 126)
+                        buffer[i] = (q&0xffffff)|(tz_i<<24);
+                    else
+                        buffer[i] = q;
+                }
                 int next = dsu[i];
                 if(next < end)
                     dsu[i] = end;
                 i = next;
             }
         }
+        if(pointed_at < 0 && buffer[640*240+320] != 0)
+            pointed_at = color & 0xffffff;
     }
     private void onkeydown(int key)
     {
@@ -1128,11 +1185,11 @@ public class GameMain
             vel_pitch--;
         if(key == 27 || ((key == 19 || key == 145) && magic))
             showGUI(new PauseMenu(this));
-        if((key == 113 || ((key == 19 || key == 415) && !magic) || key == 1001) && pointed_to >= 0)
+        if((key == 113 || ((key == 19 || key == 415) && !magic) || key == 1001) && pointed_at >= 0)
         {
-            world[pointed_to&0x1fffff] = 0; // remove block
-            int xz = (pointed_to&0x1fffff)>>7;
-            int y = pointed_to&127;
+            world[pointed_at&0x1fffff] = 0; // remove block
+            int xz = (pointed_at&0x1fffff)>>7;
+            int y = pointed_at&127;
             if(y == maxHeight[xz])
             {
                 while(y > 0 && world[128*xz+y] == 0)
@@ -1140,12 +1197,12 @@ public class GameMain
                 maxHeight[xz] = (byte)y;
             }
         }
-        if((key == 112 || key == 461 || key == 1003) && pointed_to >= 0 && world[pointed_to&0x1fffff] != 0)
+        if((key == 112 || key == 461 || key == 1003) && pointed_at >= 0 && world[pointed_at&0x1fffff] != 0)
         {
-            int side = pointed_to >> 21;
-            int x = (pointed_to >> 14) & 127;
-            int z = (pointed_to >> 7) & 127;
-            int y = pointed_to & 127;
+            int side = pointed_at >> 21;
+            int x = (pointed_at >> 14) & 127;
+            int z = (pointed_at >> 7) & 127;
+            int y = pointed_at & 127;
             if(side == 0)
                 y--;
             else if(side == 1)
